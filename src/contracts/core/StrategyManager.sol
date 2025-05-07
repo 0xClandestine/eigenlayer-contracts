@@ -482,6 +482,7 @@ contract StrategyManager is
         (, shares) = _burnableShares.tryGet(address(strategy));
     }
 
+    /// @inheritdoc IStrategyManager
     function getBurnableSharesForOperatorSet(
         OperatorSet calldata operatorSet,
         uint256 slashId,
