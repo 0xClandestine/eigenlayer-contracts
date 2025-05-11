@@ -152,14 +152,9 @@ contract StrategyManager is
         IStrategy strategy,
         uint256 addedSharesToBurn
     ) external onlyDelegationManager nonReentrant {
-        // NOTE: If we plan to deprecate `burnableShares`, this should be removed.
-        EnumerableMap.AddressToUintMap storage burnableShares = _burnableShares;
-        (, uint256 currentShares) = burnableShares.tryGet(address(strategy));
-        burnableShares.set(address(strategy), currentShares + addedSharesToBurn);
-
         EnumerableMap.AddressToUintMap storage operatorSetBurnableShares =
             _operatorSetBurnableShares[operatorSet.key()][slashId];
-        (, currentShares) = operatorSetBurnableShares.tryGet(address(strategy));
+        (, uint256 currentShares) = operatorSetBurnableShares.tryGet(address(strategy));
         operatorSetBurnableShares.set(address(strategy), currentShares + addedSharesToBurn);
 
         emit BurnableSharesIncreased(operatorSet, slashId, strategy, addedSharesToBurn);
@@ -195,10 +190,7 @@ contract StrategyManager is
         (, uint256 sharesToBurn) = operatorSetBurnableShares.tryGet(address(strategy));
         operatorSetBurnableShares.remove(address(strategy));
 
-        require(
-            block.timestamp >= allocationManager.getBurnOrRedistributionTimestamp(operatorSet, strategy, slashId),
-            BurnOrRedistributionDelayNotElapsed()
-        );
+        _checkBurnOrRedistributionDelay(operatorSet, strategy, slashId);
 
         _burnShares({
             operatorSet: operatorSet,
@@ -217,6 +209,8 @@ contract StrategyManager is
 
         for (uint256 i = 0; i < totalEntries; ++i) {
             (address strategy, uint256 sharesToBurn) = operatorSetBurnableShares.at(i);
+
+            _checkBurnOrRedistributionDelay(operatorSet, IStrategy(strategy), slashId);
 
             _burnShares({
                 operatorSet: operatorSet,
@@ -432,6 +426,18 @@ contract StrategyManager is
         return allocationManager.getRedistributionRecipient(operatorSet);
     }
 
+    /// @notice Checks if the burn or redistribution delay has elapsed for a given operator set and strategy.
+    function _checkBurnOrRedistributionDelay(
+        OperatorSet calldata operatorSet,
+        IStrategy strategy,
+        uint256 slashId
+    ) internal view {
+        require(
+            block.timestamp >= allocationManager.getBurnOrRedistributionTimestamp(operatorSet, strategy, slashId),
+            BurnOrRedistributionDelayNotElapsed()
+        );
+    }
+
     // VIEW FUNCTIONS
 
     /// @inheritdoc IStrategyManager
@@ -493,7 +499,7 @@ contract StrategyManager is
     }
 
     /// @inheritdoc IStrategyManager
-    function getBurnableSharesForOperatorSet(
+    function getOperatorSetBurnableShares(
         OperatorSet calldata operatorSet,
         uint256 slashId,
         IStrategy strategy
@@ -517,7 +523,7 @@ contract StrategyManager is
     }
 
     /// @inheritdoc IStrategyManager
-    function getStrategiesWithBurnableSharesForOperatorSet(
+    function getOperatorSetStrategiesWithBurnableShares(
         OperatorSet calldata operatorSet,
         uint256 slashId
     ) external view returns (address[] memory, uint256[] memory) {
