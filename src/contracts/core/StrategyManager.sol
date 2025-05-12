@@ -34,6 +34,11 @@ contract StrategyManager is
     using OperatorSetLib for OperatorSet;
     using EnumerableMap for EnumerableMap.AddressToUintMap;
 
+    modifier onlyAllocationManager() {
+        require(msg.sender == address(allocationManager), OnlyAllocationManager());
+        _;
+    }
+
     modifier onlyStrategyWhitelister() {
         require(msg.sender == strategyWhitelister, OnlyStrategyWhitelister());
         _;
@@ -152,12 +157,24 @@ contract StrategyManager is
         IStrategy strategy,
         uint256 addedSharesToBurn
     ) external onlyDelegationManager nonReentrant {
-        EnumerableMap.AddressToUintMap storage operatorSetBurnableShares =
-            _operatorSetBurnableShares[operatorSet.key()][slashId];
-        (, uint256 currentShares) = operatorSetBurnableShares.tryGet(address(strategy));
-        operatorSetBurnableShares.set(address(strategy), currentShares + addedSharesToBurn);
-
         emit BurnableSharesIncreased(operatorSet, slashId, strategy, addedSharesToBurn);
+    }
+
+    /// @inheritdoc IStrategyManager
+    function decreaseBurnableShares(
+        OperatorSet memory operatorSet,
+        uint256 slashId,
+        IStrategy strategy,
+        address recipient,
+        uint256 sharesToBurn
+    ) external nonReentrant onlyAllocationManager {
+        emit BurnableSharesDecreased(operatorSet, slashId, strategy, recipient, sharesToBurn);
+
+        // Burning acts like withdrawing, except that the destination is to the burn address.
+        // If we have no shares to burn, we don't need to call the strategy.
+        if (sharesToBurn != 0) {
+            strategy.withdraw(recipient, strategy.underlyingToken(), sharesToBurn);
+        }
     }
 
     /// @inheritdoc IStrategyManager
@@ -168,48 +185,14 @@ contract StrategyManager is
         (, uint256 sharesToBurn) = burnableShares.tryGet(address(strategy));
         burnableShares.remove(address(strategy));
 
-        // NOTE: We use max values for the operatorSet and slashId to indicate that this is a pre-distribution burn.
-        _burnShares({
-            operatorSet: OperatorSet(address(this), type(uint32).max),
-            slashId: type(uint256).max,
-            strategy: strategy,
-            recipient: DEFAULT_BURN_ADDRESS,
-            sharesToBurn: sharesToBurn
-        });
-    }
-
-    /// @inheritdoc IStrategyManager
-    function burnOrDistributeShares(
-        OperatorSet calldata operatorSet,
-        uint256 slashId,
-        IStrategy strategy
-    ) external nonReentrant {
-        EnumerableMap.AddressToUintMap storage operatorSetBurnableShares =
-            _operatorSetBurnableShares[operatorSet.key()][slashId];
-
-        (, uint256 sharesToBurn) = operatorSetBurnableShares.tryGet(address(strategy));
-
-        address recipient = allocationManager.getRedistributionRecipient(operatorSet);
-
-        _burnOrDistributeShares(operatorSetBurnableShares, operatorSet, strategy, slashId, sharesToBurn, recipient);
-    }
-
-    /// @inheritdoc IStrategyManager
-    function burnOrDistributeShares(OperatorSet calldata operatorSet, uint256 slashId) external nonReentrant {
-        EnumerableMap.AddressToUintMap storage operatorSetBurnableShares =
-            _operatorSetBurnableShares[operatorSet.key()][slashId];
-
-        uint256 totalEntries = operatorSetBurnableShares.length();
-
-        address recipient = allocationManager.getRedistributionRecipient(operatorSet);
-
-        for (uint256 i = 0; i < totalEntries; ++i) {
-            (address strategy, uint256 sharesToBurn) = operatorSetBurnableShares.at(i);
-
-            _burnOrDistributeShares(
-                operatorSetBurnableShares, operatorSet, IStrategy(strategy), slashId, sharesToBurn, recipient
-            );
-        }
+        // NOTE: We use max values for the operatorSet and slashId to indicate that this is a legacy burn.
+        emit BurnableSharesDecreased(
+            OperatorSet(address(this), type(uint32).max),
+            type(uint256).max,
+            strategy,
+            DEFAULT_BURN_ADDRESS,
+            sharesToBurn
+        );
     }
 
     /// @inheritdoc IStrategyManager
@@ -353,62 +336,6 @@ contract StrategyManager is
     }
 
     /**
-     * @notice Burns `sharesToBurn` shares from `strategy` and sends the underlying tokens to `recipient`.
-     * @param operatorSet The operator set associated with this burn/redistribution.
-     * @param slashId The unique identifier for the slashing event relative to the operator set.
-     * @param strategy The strategy contract from which shares will be burned.
-     * @param recipient The address that will receive the underlying tokens from the burned shares.
-     * @param sharesToBurn The number of shares to burn from the strategy.
-     */
-    function _burnShares(
-        OperatorSet memory operatorSet,
-        uint256 slashId,
-        IStrategy strategy,
-        address recipient,
-        uint256 sharesToBurn
-    ) internal {
-        emit BurnableSharesDecreased(operatorSet, slashId, strategy, recipient, sharesToBurn);
-
-        // Burning acts like withdrawing, except that the destination is to the burn address.
-        // If we have no shares to burn, we don't need to call the strategy.
-        if (sharesToBurn != 0) {
-            strategy.withdraw(recipient, strategy.underlyingToken(), sharesToBurn);
-        }
-    }
-
-    /**
-     * @notice Burns `sharesToBurn` shares from `strategy` and sends the underlying tokens to redistribution recipient or `DEFAULT_BURN_ADDRESS`.
-     * @param ptr The pointer to the operator set burnable shares map.
-     * @param operatorSet The operator set associated with this burn/redistribution.
-     * @param slashId The unique identifier for the slashing event relative to the operator set.
-     * @param strategy The strategy contract from which shares will be burned.
-     * @param sharesToBurn The number of shares to burn from the strategy.
-     */
-    function _burnOrDistributeShares(
-        EnumerableMap.AddressToUintMap storage ptr,
-        OperatorSet calldata operatorSet,
-        IStrategy strategy,
-        uint256 slashId,
-        uint256 sharesToBurn,
-        address recipient
-    ) internal {
-        require(
-            block.timestamp >= allocationManager.getBurnOrRedistributionBlock(operatorSet, strategy, slashId),
-            BurnOrRedistributionDelayNotElapsed()
-        );
-
-        ptr.remove(address(strategy));
-
-        _burnShares({
-            operatorSet: operatorSet,
-            slashId: slashId,
-            strategy: IStrategy(strategy),
-            recipient: recipient,
-            sharesToBurn: sharesToBurn
-        });
-    }
-
-    /**
      * @notice Removes `strategy` from `staker`'s dynamic array of strategies, i.e. from `stakerStrategyList[staker]`
      * @param staker The user whose array will have an entry removed
      * @param strategy The Strategy to remove from `stakerStrategyList[staker]`
@@ -502,15 +429,6 @@ contract StrategyManager is
     }
 
     /// @inheritdoc IStrategyManager
-    function getOperatorSetBurnableShares(
-        OperatorSet calldata operatorSet,
-        uint256 slashId,
-        IStrategy strategy
-    ) external view returns (uint256 shares) {
-        (, shares) = _operatorSetBurnableShares[operatorSet.key()][slashId].tryGet(address(strategy));
-    }
-
-    /// @inheritdoc IStrategyManager
     function getStrategiesWithBurnableShares() external view returns (address[] memory, uint256[] memory) {
         EnumerableMap.AddressToUintMap storage burnableShares = _burnableShares;
         uint256 totalEntries = burnableShares.length();
@@ -520,25 +438,6 @@ contract StrategyManager is
 
         for (uint256 i = 0; i < totalEntries; ++i) {
             (strategies[i], shares[i]) = burnableShares.at(i);
-        }
-
-        return (strategies, shares);
-    }
-
-    /// @inheritdoc IStrategyManager
-    function getOperatorSetStrategiesWithBurnableShares(
-        OperatorSet calldata operatorSet,
-        uint256 slashId
-    ) external view returns (address[] memory, uint256[] memory) {
-        EnumerableMap.AddressToUintMap storage operatorSetBurnableShares =
-            _operatorSetBurnableShares[operatorSet.key()][slashId];
-        uint256 totalEntries = operatorSetBurnableShares.length();
-
-        address[] memory strategies = new address[](totalEntries);
-        uint256[] memory shares = new uint256[](totalEntries);
-
-        for (uint256 i = 0; i < totalEntries; ++i) {
-            (strategies[i], shares[i]) = operatorSetBurnableShares.at(i);
         }
 
         return (strategies, shares);

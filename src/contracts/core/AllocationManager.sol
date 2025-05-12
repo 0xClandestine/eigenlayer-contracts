@@ -29,6 +29,8 @@ contract AllocationManager is
     using OperatorSetLib for OperatorSet;
     using SlashingLib for uint256;
 
+    using EnumerableMap for EnumerableMap.AddressToUintMap;
+
     /**
      *
      *                         INITIALIZING FUNCTIONS
@@ -39,6 +41,7 @@ contract AllocationManager is
      * @dev Initializes the DelegationManager address, the deallocation delay, and the allocation configuration delay.
      */
     constructor(
+        IStrategyManager _strategyManager,
         IDelegationManager _delegation,
         IPauserRegistry _pauserRegistry,
         IPermissionController _permissionController,
@@ -46,7 +49,7 @@ contract AllocationManager is
         uint32 _ALLOCATION_CONFIGURATION_DELAY,
         string memory _version
     )
-        AllocationManagerStorage(_delegation, _DEALLOCATION_DELAY, _ALLOCATION_CONFIGURATION_DELAY)
+        AllocationManagerStorage(_strategyManager, _delegation, _DEALLOCATION_DELAY, _ALLOCATION_CONFIGURATION_DELAY)
         Pausable(_pauserRegistry)
         PermissionControllerMixin(_permissionController)
         SemVerMixin(_version)
@@ -317,6 +320,35 @@ contract AllocationManager is
         }
     }
 
+    /// @inheritdoc IAllocationManager
+    function burnOrDistributeShares(
+        OperatorSet calldata operatorSet,
+        uint256 slashId,
+        IStrategy strategy
+    ) external nonReentrant {
+        EnumerableMap.AddressToUintMap storage operatorSetBurnableShares =
+            _operatorSetBurnableShares[operatorSet.key()][slashId];
+        (, uint256 sharesToBurn) = operatorSetBurnableShares.tryGet(address(strategy));
+        address recipient = _redistributionRecipients[operatorSet.key()];
+
+        _burnOrDistributeShares(operatorSetBurnableShares, operatorSet, strategy, slashId, sharesToBurn, recipient);
+    }
+
+    /// @inheritdoc IAllocationManager
+    function burnOrDistributeShares(OperatorSet calldata operatorSet, uint256 slashId) external nonReentrant {
+        EnumerableMap.AddressToUintMap storage operatorSetBurnableShares =
+            _operatorSetBurnableShares[operatorSet.key()][slashId];
+        uint256 totalEntries = operatorSetBurnableShares.length();
+        address recipient = _redistributionRecipients[operatorSet.key()];
+
+        for (uint256 i = 0; i < totalEntries; ++i) {
+            (address strategy, uint256 sharesToBurn) = operatorSetBurnableShares.at(i);
+            _burnOrDistributeShares(
+                operatorSetBurnableShares, operatorSet, IStrategy(strategy), slashId, sharesToBurn, recipient
+            );
+        }
+    }
+
     /**
      *
      *                         INTERNAL FUNCTIONS
@@ -326,8 +358,6 @@ contract AllocationManager is
         SlashingParams calldata params,
         OperatorSet memory operatorSet
     ) internal returns (uint256 slashId, uint256[] memory shares) {
-        uint256[] memory wadSlashed = new uint256[](params.strategies.length);
-
         // Increment the slash count for the operator set.
         slashId = ++_slashCount[operatorSet.key()];
 
@@ -352,70 +382,154 @@ contract AllocationManager is
             _burnOrRedistributionBlock[operatorSet.key()][params.strategies[i]][slashId] =
                 uint32(block.number) + BURN_OR_REDISTRIBUTION_DELAY;
 
-            // 1. Get the operator's allocation info for the strategy and operator set
-            (StrategyInfo memory info, Allocation memory allocation) =
-                _getUpdatedAllocation(params.operator, operatorSet.key(), params.strategies[i]);
-
-            // 2. Skip if the operator does not have a slashable allocation
-            // NOTE: this "if" is equivalent to: `if (!_isAllocationSlashable)`, because the other
-            // conditions in this method are already true (isOperatorSlashable + operatorSetStrategies.contains)
-            if (allocation.currentMagnitude == 0) {
-                continue;
-            }
-
-            // 3. Calculate the amount of magnitude being slashed, and subtract from
-            // the operator's currently-allocated magnitude, as well as the strategy's
-            // max and encumbered magnitudes
-            uint64 slashedMagnitude = uint64(uint256(allocation.currentMagnitude).mulWadRoundUp(params.wadsToSlash[i]));
-            uint64 prevMaxMagnitude = info.maxMagnitude;
-            wadSlashed[i] = uint256(slashedMagnitude).divWad(info.maxMagnitude);
-
-            allocation.currentMagnitude -= slashedMagnitude;
-            info.maxMagnitude -= slashedMagnitude;
-            info.encumberedMagnitude -= slashedMagnitude;
-
-            // 4. If there is a pending deallocation, reduce the pending deallocation proportionally.
-            // This ensures that when the deallocation is completed, less magnitude is freed.
-            if (allocation.pendingDiff < 0) {
-                uint64 slashedPending =
-                    uint64(uint256(uint128(-allocation.pendingDiff)).mulWadRoundUp(params.wadsToSlash[i]));
-                allocation.pendingDiff += int128(uint128(slashedPending));
-
-                _emitAllocationUpdated(
-                    params.operator,
-                    operatorSet,
-                    params.strategies[i],
-                    _addInt128(allocation.currentMagnitude, allocation.pendingDiff),
-                    allocation.effectBlock
-                );
-            }
-
-            // 5. Update state
-            _updateAllocationInfo(params.operator, operatorSet.key(), params.strategies[i], info, allocation);
-
-            _emitAllocationUpdated(
-                params.operator, operatorSet, params.strategies[i], allocation.currentMagnitude, uint32(block.number)
+            shares[i] = _slashOperatorStrategy(
+                params.operator, operatorSet, params.strategies[i], params.wadsToSlash[i], slashId
             );
-
-            _updateMaxMagnitude(params.operator, params.strategies[i], info.maxMagnitude);
-
-            // 6. Slash operators shares in the DelegationManager
-            delegation.slashOperatorShares({
-                operator: params.operator,
-                operatorSet: operatorSet,
-                slashId: slashId,
-                strategy: params.strategies[i],
-                prevMaxMagnitude: prevMaxMagnitude,
-                newMaxMagnitude: info.maxMagnitude
-            });
         }
 
-        emit OperatorSlashed(params.operator, operatorSet, params.strategies, wadSlashed, params.description);
+        emit OperatorSlashed(params.operator, operatorSet, params.strategies, shares, params.description);
+    }
+
+    /**
+     * @notice Slashes an operator's allocation for a specific strategy
+     * @param operator The operator being slashed
+     * @param operatorSet The operator set
+     * @param strategy The strategy to slash
+     * @param wadToSlash The fraction of allocation to slash (in WAD)
+     * @param slashId The ID of the slashing event
+     * @return wadSlashed The fraction of allocation that was slashed (in WAD)
+     */
+    function _slashOperatorStrategy(
+        address operator,
+        OperatorSet memory operatorSet,
+        IStrategy strategy,
+        uint256 wadToSlash,
+        uint256 slashId
+    ) internal returns (uint256 wadSlashed) {
+        // 1. Get the operator's allocation info for the strategy and operator set
+        (StrategyInfo memory info, Allocation memory allocation) =
+            _getUpdatedAllocation(operator, operatorSet.key(), strategy);
+
+        // 2. Skip if the operator does not have a slashable allocation
+        if (allocation.currentMagnitude == 0) {
+            return 0;
+        }
+
+        // 3. Calculate the amount of magnitude being slashed
+        uint64 slashedMagnitude = uint64(uint256(allocation.currentMagnitude).mulWadRoundUp(wadToSlash));
+        uint64 prevMaxMagnitude = info.maxMagnitude;
+        wadSlashed = uint256(slashedMagnitude).divWad(info.maxMagnitude);
+
+        // Update allocation and strategy info
+        return _updateSlashedAllocation(
+            operator, operatorSet, strategy, info, allocation, slashedMagnitude, prevMaxMagnitude, slashId
+        );
+    }
+
+    /**
+     * @notice Updates allocation and strategy info after slashing
+     * @param operator The operator being slashed
+     * @param operatorSet The operator set
+     * @param strategy The strategy being slashed
+     * @param info The strategy info
+     * @param allocation The allocation info
+     * @param slashedMagnitude The magnitude being slashed
+     * @param prevMaxMagnitude The previous max magnitude
+     * @param slashId The ID of the slashing event
+     * @return wadSlashed The fraction of allocation that was slashed (in WAD)
+     */
+    function _updateSlashedAllocation(
+        address operator,
+        OperatorSet memory operatorSet,
+        IStrategy strategy,
+        StrategyInfo memory info,
+        Allocation memory allocation,
+        uint64 slashedMagnitude,
+        uint64 prevMaxMagnitude,
+        uint256 slashId
+    ) internal returns (uint256 wadSlashed) {
+        // Reduce the operator's currently-allocated magnitude
+        allocation.currentMagnitude -= slashedMagnitude;
+
+        // Reduce the strategy's max and encumbered magnitudes
+        info.maxMagnitude -= slashedMagnitude;
+        info.encumberedMagnitude -= slashedMagnitude;
+
+        // If there is a pending deallocation, reduce it proportionally
+        if (allocation.pendingDiff < 0) {
+            uint64 slashedPending = uint64(uint256(uint128(-allocation.pendingDiff)).mulWadRoundUp(wadSlashed));
+            allocation.pendingDiff += int128(uint128(slashedPending));
+
+            _emitAllocationUpdated(
+                operator,
+                operatorSet,
+                strategy,
+                _addInt128(allocation.currentMagnitude, allocation.pendingDiff),
+                allocation.effectBlock
+            );
+        }
+
+        // Update state
+        _updateAllocationInfo(operator, operatorSet.key(), strategy, info, allocation);
+
+        _emitAllocationUpdated(operator, operatorSet, strategy, allocation.currentMagnitude, uint32(block.number));
+
+        _updateMaxMagnitude(operator, strategy, info.maxMagnitude);
+
+        // Increase burnable shares
+        EnumerableMap.AddressToUintMap storage operatorSetBurnableShares =
+            _operatorSetBurnableShares[operatorSet.key()][slashId];
+        (, uint256 currentShares) = operatorSetBurnableShares.tryGet(address(strategy));
+        operatorSetBurnableShares.set(address(strategy), currentShares + 0); // addedSharesToBurn
+
+        // Slash operators shares in the DelegationManager
+        delegation.slashOperatorShares({
+            operator: operator,
+            operatorSet: operatorSet,
+            slashId: slashId,
+            strategy: strategy,
+            prevMaxMagnitude: prevMaxMagnitude,
+            newMaxMagnitude: info.maxMagnitude
+        });
+
+        return wadSlashed;
     }
 
     function _addStrategyToOperatorSet(OperatorSet memory operatorSet, IStrategy strategy) internal {
         require(_operatorSetStrategies[operatorSet.key()].add(address(strategy)), StrategyAlreadyInOperatorSet());
         emit StrategyAddedToOperatorSet(operatorSet, strategy);
+    }
+
+    /**
+     * @notice Burns `sharesToBurn` shares from `strategy` and sends the underlying tokens to redistribution recipient or `DEFAULT_BURN_ADDRESS`.
+     * @param ptr The pointer to the operator set burnable shares map.
+     * @param operatorSet The operator set associated with this burn/redistribution.
+     * @param slashId The unique identifier for the slashing event relative to the operator set.
+     * @param strategy The strategy contract from which shares will be burned.
+     * @param sharesToBurn The number of shares to burn from the strategy.
+     */
+    function _burnOrDistributeShares(
+        EnumerableMap.AddressToUintMap storage ptr,
+        OperatorSet calldata operatorSet,
+        IStrategy strategy,
+        uint256 slashId,
+        uint256 sharesToBurn,
+        address recipient
+    ) internal {
+        require(
+            block.timestamp >= _burnOrRedistributionBlock[operatorSet.key()][strategy][slashId],
+            BurnOrRedistributionDelayNotElapsed()
+        );
+
+        ptr.remove(address(strategy));
+
+        strategyManager.decreaseBurnableShares({
+            operatorSet: operatorSet,
+            slashId: slashId,
+            strategy: IStrategy(strategy),
+            recipient: recipient,
+            sharesToBurn: sharesToBurn
+        });
     }
 
     /**
@@ -1043,5 +1157,33 @@ contract AllocationManager is
             }
         }
         return false;
+    }
+
+    /// @inheritdoc IAllocationManager
+    function getOperatorSetBurnableShares(
+        OperatorSet calldata operatorSet,
+        uint256 slashId,
+        IStrategy strategy
+    ) external view returns (uint256 shares) {
+        (, shares) = _operatorSetBurnableShares[operatorSet.key()][slashId].tryGet(address(strategy));
+    }
+
+    /// @inheritdoc IAllocationManager
+    function getOperatorSetStrategiesWithBurnableShares(
+        OperatorSet calldata operatorSet,
+        uint256 slashId
+    ) external view returns (address[] memory, uint256[] memory) {
+        EnumerableMap.AddressToUintMap storage operatorSetBurnableShares =
+            _operatorSetBurnableShares[operatorSet.key()][slashId];
+        uint256 totalEntries = operatorSetBurnableShares.length();
+
+        address[] memory strategies = new address[](totalEntries);
+        uint256[] memory shares = new uint256[](totalEntries);
+
+        for (uint256 i = 0; i < totalEntries; ++i) {
+            (strategies[i], shares[i]) = operatorSetBurnableShares.at(i);
+        }
+
+        return (strategies, shares);
     }
 }

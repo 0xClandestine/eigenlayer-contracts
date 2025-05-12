@@ -2720,7 +2720,7 @@ abstract contract IntegrationBase is IntegrationDeployer, TypeImporter {
     function _getBurnableShares(OperatorSet memory operatorSet, uint slashId, IStrategy strategy) internal view returns (uint) {
         return strategy == beaconChainETHStrategy
             ? eigenPodManager.burnableETHShares()
-            : strategyManager.getOperatorSetBurnableShares(operatorSet, slashId, strategy);
+            : allocationManager.getOperatorSetBurnableShares(operatorSet, slashId, strategy);
     }
 
     function _getPrevSlashableSharesInQueue(User operator, IStrategy[] memory strategies) internal timewarp returns (uint[] memory) {

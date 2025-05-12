@@ -78,11 +78,6 @@ abstract contract StrategyManagerStorage is IStrategyManager {
     /// NOTE: Only tracks pre-distribution burns, in the future this mapping will be deprecated.
     EnumerableMap.AddressToUintMap internal _burnableShares;
 
-    /// @dev Given an operator set and slashId, returns an enumerable mapping of strategies to the amount
-    /// of shares for each strategy that have been slashed but not burned/redistributed yet.
-    mapping(bytes32 operatorSetKey => mapping(uint256 slashId => EnumerableMap.AddressToUintMap)) internal
-        _operatorSetBurnableShares;
-
     // Construction
 
     /**
@@ -98,5 +93,5 @@ abstract contract StrategyManagerStorage is IStrategyManager {
      * variables without shifting down storage in the inheritance chain.
      * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
      */
-    uint256[35] private __gap;
+    uint256[36] private __gap;
 }
