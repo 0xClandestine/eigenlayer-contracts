@@ -316,6 +316,22 @@ contract DelegationManager is
         emit OperatorSharesSlashed(operator, strategy, totalDepositSharesToBurn);
 
         _getShareManager(strategy).increaseBurnableShares(operatorSet, slashId, strategy, totalDepositSharesToBurn);
+
+        IStrategy[] memory singleStrategy = new IStrategy[](1);
+        uint256[] memory singleDepositShares = new uint256[](1);
+        uint256[] memory singleSlashingFactor = new uint256[](1);
+        singleStrategy[0] = strategy;
+        singleDepositShares[0] = totalDepositSharesToBurn;
+        singleSlashingFactor[0] = WAD;
+
+        // TODO: pass redistribution recipient in call
+        _removeSharesAndQueueWithdrawal({
+            staker: address(0),
+            operator: address(this),
+            strategies: singleStrategy,
+            depositSharesToWithdraw: singleDepositShares,
+            slashingFactors: singleSlashingFactor
+        });
     }
 
     /**
@@ -544,7 +560,11 @@ contract DelegationManager is
         bool receiveAsTokens
     ) internal {
         _checkInputArrayLengths(tokens.length, withdrawal.strategies.length);
-        require(msg.sender == withdrawal.withdrawer, WithdrawerNotCaller());
+        if (withdrawal.delegatedTo == address(this)) { // If this is a redistribution withdrawal // TODO: make this cleaner
+            require(receiveAsTokens, WithdrawerNotCaller());
+        } else {
+            require(msg.sender == withdrawal.withdrawer, WithdrawerNotCaller());
+        }
         bytes32 withdrawalRoot = calculateWithdrawalRoot(withdrawal);
         require(pendingWithdrawals[withdrawalRoot], WithdrawalNotQueued());
 
@@ -552,7 +572,9 @@ contract DelegationManager is
         {
             // slashableUntil is block inclusive so we need to check if the current block is strictly greater than the slashableUntil block
             // meaning the withdrawal can be completed.
-            uint32 slashableUntil = withdrawal.startBlock + MIN_WITHDRAWAL_DELAY_BLOCKS;
+            // TODO: update delay blocks for redistribution + EIGEN_REDISTRIBUTION_DELAY_BLOCKS
+            uint32 delayBlocks = withdrawal.delegatedTo == address(this) ? 3.5 days : MIN_WITHDRAWAL_DELAY_BLOCKS;
+            uint32 slashableUntil = withdrawal.startBlock + delayBlocks;
             require(uint32(block.number) > slashableUntil, WithdrawalDelayNotElapsed());
 
             // Given the max magnitudes of the operator the staker was originally delegated to, calculate
