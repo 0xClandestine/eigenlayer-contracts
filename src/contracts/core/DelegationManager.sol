@@ -332,7 +332,7 @@ contract DelegationManager is
             scaledShares: singleDepositShares
         });
 
-        // TODO: we should add an event here. RedistributionQueued(address recipient, strategy, shares)
+        // TODO: we should add an event here. RedistributionQueued(bytes32 withdrawalRoot, Withdrawal withdrawal)
 
         _addWithdrawalToQueue(withdrawal);
 
