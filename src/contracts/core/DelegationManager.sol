@@ -319,19 +319,24 @@ contract DelegationManager is
 
         IStrategy[] memory singleStrategy = new IStrategy[](1);
         uint256[] memory singleDepositShares = new uint256[](1);
-        uint256[] memory singleSlashingFactor = new uint256[](1);
         singleStrategy[0] = strategy;
         singleDepositShares[0] = totalDepositSharesToBurn;
-        singleSlashingFactor[0] = WAD;
 
-        // TODO: pass redistribution recipient in call
-        _removeSharesAndQueueWithdrawal({
-            staker: address(0),
-            operator: address(this),
+        Withdrawal memory withdrawal = Withdrawal({
+            staker: address(0), // TODO: pass in redistribution recipient in call
+            delegatedTo: address(this),
+            withdrawer: address(0), // We use address(0) as the withdrawer to special case for allowing anybody to complete the withdrawal
+            nonce: slashId,
+            startBlock: uint32(block.number),
             strategies: singleStrategy,
-            depositSharesToWithdraw: singleDepositShares,
-            slashingFactors: singleSlashingFactor
+            scaledShares: singleDepositShares
         });
+
+        // TODO: we should add an event here. RedistributionQueued(address recipient, strategy, shares)
+
+        _addWithdrawalToQueue(withdrawal);
+
+        // TODO: return shares
     }
 
     /**
@@ -535,13 +540,19 @@ contract DelegationManager is
             scaledShares: scaledShares
         });
 
+        bytes32 withdrawalRoot = _addWithdrawalToQueue(withdrawal);
+
+        emit SlashingWithdrawalQueued(withdrawalRoot, withdrawal, withdrawableShares);
+        return withdrawalRoot;
+    }
+
+    function _addWithdrawalToQueue(Withdrawal memory withdrawal) internal returns (bytes32) {
         bytes32 withdrawalRoot = calculateWithdrawalRoot(withdrawal);
 
         pendingWithdrawals[withdrawalRoot] = true;
         _queuedWithdrawals[withdrawalRoot] = withdrawal;
-        _stakerQueuedWithdrawalRoots[staker].add(withdrawalRoot);
+        _stakerQueuedWithdrawalRoots[withdrawal.staker].add(withdrawalRoot);
 
-        emit SlashingWithdrawalQueued(withdrawalRoot, withdrawal, withdrawableShares);
         return withdrawalRoot;
     }
 
