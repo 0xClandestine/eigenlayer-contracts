@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
+import "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/structs/DoubleEndedQueue.sol";
 
+import "../interfaces/IStrategyManager.sol";
 import "../interfaces/IAllocationManager.sol";
 import "../interfaces/IDelegationManager.sol";
 
@@ -33,6 +35,9 @@ abstract contract AllocationManagerStorage is IAllocationManager {
     uint8 internal constant PAUSED_OPERATOR_SET_REGISTRATION_AND_DEREGISTRATION = 2;
 
     // Immutables
+
+    /// @notice The StrategyManager contract for EigenLayer
+    IStrategyManager public immutable strategyManager;
 
     /// @notice The DelegationManager contract for EigenLayer
     IDelegationManager public immutable delegation;
@@ -114,11 +119,22 @@ abstract contract AllocationManagerStorage is IAllocationManager {
 
     /// @notice Returns the block number a burn or redistribution can occur after a given an operator set, strategy, and slash ID.
     mapping(bytes32 operatorSetKey => mapping(IStrategy strategy => mapping(uint256 slashId => uint32 blockNumber)))
-        public _burnOrRedistributionBlock;
+        internal _burnOrRedistributionBlock;
+
+    /// @dev Given an operator set and slashId, returns an enumerable mapping of strategies to the amount
+    /// of shares for each strategy that have been slashed but not burned/redistributed yet.
+    mapping(bytes32 operatorSetKey => mapping(uint256 slashId => EnumerableMap.AddressToUintMap)) internal
+        _operatorSetBurnableShares;
 
     // Construction
 
-    constructor(IDelegationManager _delegation, uint32 _DEALLOCATION_DELAY, uint32 _ALLOCATION_CONFIGURATION_DELAY) {
+    constructor(
+        IStrategyManager _strategyManager,
+        IDelegationManager _delegation,
+        uint32 _DEALLOCATION_DELAY,
+        uint32 _ALLOCATION_CONFIGURATION_DELAY
+    ) {
+        strategyManager = _strategyManager;
         delegation = _delegation;
         DEALLOCATION_DELAY = _DEALLOCATION_DELAY;
         ALLOCATION_CONFIGURATION_DELAY = _ALLOCATION_CONFIGURATION_DELAY;
@@ -129,5 +145,5 @@ abstract contract AllocationManagerStorage is IAllocationManager {
      * variables without shifting down storage in the inheritance chain.
      * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
      */
-    uint256[33] private __gap;
+    uint256[32] private __gap;
 }

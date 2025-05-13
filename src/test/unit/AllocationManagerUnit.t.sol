@@ -96,6 +96,7 @@ contract AllocationManagerUnitTests is EigenLayerUnitTestSetup, IAllocationManag
                 new TransparentUpgradeableProxy(
                     address(
                         new AllocationManagerHarness(
+                            IStrategyManager(address(strategyManagerMock)),
                             IDelegationManager(address(delegationManagerMock)),
                             _pauserRegistry,
                             IPermissionController(address(permissionController)),

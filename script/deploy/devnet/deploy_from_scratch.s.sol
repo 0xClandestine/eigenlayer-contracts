@@ -255,6 +255,7 @@ contract DeployFromScratch is Script, Test {
             )
         );
         allocationManagerImplementation = new AllocationManager(
+            strategyManager,
             delegation,
             eigenLayerPauserReg,
             permissionController,

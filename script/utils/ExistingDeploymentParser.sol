@@ -224,6 +224,7 @@ contract ExistingDeploymentParser is Script, Logger {
         );
 
         allocationManagerImplementation = new AllocationManager(
+            strategyManager,
             delegationManager,
             eigenLayerPauserReg,
             permissionController,

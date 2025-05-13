@@ -57,6 +57,11 @@ interface IAllocationManagerErrors {
     error ModificationAlreadyPending();
     /// @dev Thrown when an allocation is attempted that exceeds a given operators total allocatable magnitude.
     error InsufficientMagnitude();
+
+    /// Burn/Redistribution
+
+    /// @dev Thrown when attempting to burn or redistribute shares before the delay period has elapsed
+    error BurnOrRedistributionDelayNotElapsed();
 }
 
 interface IAllocationManagerTypes {
@@ -370,6 +375,25 @@ interface IAllocationManager is IAllocationManagerErrors, IAllocationManagerEven
     ) external;
 
     /**
+     * @notice Burns/Redistributes Strategy shares for the given strategy and slashId by calling into the strategy to transfer
+     * to the operatorSet's burn address.
+     * @param operatorSet The operatorSet to burn or redistribute shares for.
+     * @param slashId The identifier associated with the slash.
+     * @param strategy The strategy to burn shares in.
+     * @dev This is a permissionless function that can be called by anyone.
+     */
+    function burnOrDistributeShares(OperatorSet calldata operatorSet, uint256 slashId, IStrategy strategy) external;
+
+    /**
+     * @notice Burns/Redistributes Strategy shares for all strategies by calling into the strategy to transfer
+     * to the operatorSet's burn address. This is an arrayified version of the above.
+     * @param operatorSet The operatorSet to burn or redistribute shares for.
+     * @param slashId The identifier associated with the slash.
+     * @dev This is a permissionless function that can be called by anyone.
+     */
+    function burnOrDistributeShares(OperatorSet calldata operatorSet, uint256 slashId) external;
+
+    /**
      *
      *                         VIEW FUNCTIONS
      *
@@ -674,4 +698,21 @@ interface IAllocationManager is IAllocationManagerErrors, IAllocationManagerEven
     function isOperatorRedistributable(
         address operator
     ) external view returns (bool);
+
+    /// @notice Returns the post-distribution burnable shares of a strategy for a specific operator set and slash ID.
+    function getOperatorSetBurnableShares(
+        OperatorSet calldata operatorSet,
+        uint256 slashId,
+        IStrategy strategy
+    ) external view returns (uint256 shares);
+
+    /**
+     * @notice Returns the post-distribution burnable shares of a strategy for a specific operator set and slash ID.
+     *
+     * WARNING: Iterates over all storage entries and copies to memory. Gas cost scales with number of strategies.
+     */
+    function getOperatorSetStrategiesWithBurnableShares(
+        OperatorSet calldata operatorSet,
+        uint256 slashId
+    ) external view returns (address[] memory, uint256[] memory);
 }
