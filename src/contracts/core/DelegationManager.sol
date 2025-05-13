@@ -326,7 +326,7 @@ contract DelegationManager is
             staker: address(0), // TODO: pass in redistribution recipient in call
             delegatedTo: address(this),
             withdrawer: address(0), // We use address(0) as the withdrawer to special case for allowing anybody to complete the withdrawal
-            nonce: slashId,
+            nonce: slashId, // TODO: this should just be the withdrawal nonce? 
             startBlock: uint32(block.number),
             strategies: singleStrategy,
             scaledShares: singleDepositShares
