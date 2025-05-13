@@ -332,7 +332,7 @@ contract DelegationManager is
             scaledShares: singleDepositShares
         });
 
-        // TODO: we should add an event here. RedistributionQueued(bytes32 withdrawalRoot, Withdrawal withdrawal)
+        emit RedistributionQueued(calculateWithdrawalRoot(withdrawal), withdrawal);
 
         _addWithdrawalToQueue(withdrawal);
 
@@ -546,7 +546,9 @@ contract DelegationManager is
         return withdrawalRoot;
     }
 
-    function _addWithdrawalToQueue(Withdrawal memory withdrawal) internal returns (bytes32) {
+    function _addWithdrawalToQueue(
+        Withdrawal memory withdrawal
+    ) internal returns (bytes32) {
         bytes32 withdrawalRoot = calculateWithdrawalRoot(withdrawal);
 
         pendingWithdrawals[withdrawalRoot] = true;
@@ -571,7 +573,8 @@ contract DelegationManager is
         bool receiveAsTokens
     ) internal {
         _checkInputArrayLengths(tokens.length, withdrawal.strategies.length);
-        if (withdrawal.delegatedTo == address(this)) { // If this is a redistribution withdrawal // TODO: make this cleaner
+        if (withdrawal.delegatedTo == address(this)) {
+            // If this is a redistribution withdrawal // TODO: make this cleaner
             require(receiveAsTokens, WithdrawerNotCaller());
         } else {
             require(msg.sender == withdrawal.withdrawer, WithdrawerNotCaller());

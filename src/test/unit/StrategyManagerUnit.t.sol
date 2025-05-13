@@ -42,9 +42,7 @@ contract StrategyManagerUnitTests is EigenLayerUnitTestSetup, IStrategyManagerEv
 
     function setUp() public override {
         EigenLayerUnitTestSetup.setUp();
-        strategyManagerImplementation = new StrategyManager(
-            IAllocationManager(address(allocationManagerMock)), IDelegationManager(address(delegationManagerMock)), pauserRegistry, "v9.9.9"
-        );
+        strategyManagerImplementation = new StrategyManager(IDelegationManager(address(delegationManagerMock)), pauserRegistry, "v9.9.9");
         strategyManager = StrategyManager(
             address(
                 new TransparentUpgradeableProxy(
@@ -1082,9 +1080,7 @@ contract StrategyManagerUnitTests_increaseBurnableShares is StrategyManagerUnitT
         cheats.prank(address(delegationManagerMock));
         strategyManager.increaseBurnableShares(defaultOperatorSet, defaultSlashId, strategy, addedSharesToBurn);
         assertEq(
-            strategyManager.getOperatorSetBurnableShares(defaultOperatorSet, defaultSlashId, strategy),
-            addedSharesToBurn,
-            "strategyManager.burnableShares(strategy) != addedSharesToBurn"
+            strategyManager.getBurnableShares(strategy), addedSharesToBurn, "strategyManager.burnableShares(strategy) != addedSharesToBurn"
         );
     }
 
@@ -1099,7 +1095,7 @@ contract StrategyManagerUnitTests_increaseBurnableShares is StrategyManagerUnitT
         emit BurnableSharesIncreased(defaultOperatorSet, defaultSlashId, strategy, existingBurnableShares);
         strategyManager.increaseBurnableShares(defaultOperatorSet, defaultSlashId, strategy, existingBurnableShares);
         assertEq(
-            strategyManager.getOperatorSetBurnableShares(defaultOperatorSet, defaultSlashId, strategy),
+            strategyManager.getBurnableShares(strategy),
             existingBurnableShares,
             "strategyManager.burnableShares(strategy) != existingBurnableShares"
         );
@@ -1110,7 +1106,7 @@ contract StrategyManagerUnitTests_increaseBurnableShares is StrategyManagerUnitT
         strategyManager.increaseBurnableShares(defaultOperatorSet, defaultSlashId, strategy, addedSharesToBurn);
 
         assertEq(
-            strategyManager.getOperatorSetBurnableShares(defaultOperatorSet, defaultSlashId, strategy),
+            strategyManager.getBurnableShares(strategy),
             existingBurnableShares + addedSharesToBurn,
             "strategyManager.burnableShares(strategy) != existingBurnableShares + addedSharesToBurn"
         );
@@ -1142,7 +1138,7 @@ contract StrategyManagerUnitTests_burnShares is StrategyManagerUnitTests {
         // emit BurnableSharesDecreased(
         //     OperatorSet(address(strategyManager), type(uint32).max), type(uint).max, strategy, DEFAULT_BURN_ADDRESS, sharesToBurn
         // );
-        strategyManager.burnOrDistributeShares(defaultOperatorSet, defaultSlashId, strategy);
+        strategyManager.burnShares(strategy);
         uint strategyBalanceAfter = token.balanceOf(address(strategy));
         uint burnAddressBalanceAfter = token.balanceOf(strategyManager.DEFAULT_BURN_ADDRESS());
 
@@ -1150,14 +1146,9 @@ contract StrategyManagerUnitTests_burnShares is StrategyManagerUnitTests {
         assertEq(burnAddressBalanceAfter, burnAddressBalanceBefore + sharesToBurn, "balanceAfter != balanceBefore + sharesAmount");
 
         // Verify strategy was removed from burnable sharesc
-        (address[] memory strategiesAfterBurn,) =
-            strategyManager.getOperatorSetStrategiesWithBurnableShares(defaultOperatorSet, defaultSlashId);
+        (address[] memory strategiesAfterBurn,) = strategyManager.getStrategiesWithBurnableShares();
         assertEq(strategiesAfterBurn.length, 0, "Should have no strategies after burning");
-        assertEq(
-            strategyManager.getOperatorSetBurnableShares(defaultOperatorSet, defaultSlashId, strategy),
-            0,
-            "getBurnableShares should return 0 after burning"
-        );
+        assertEq(strategyManager.getBurnableShares(strategy), 0, "getBurnableShares should return 0 after burning");
     }
 
     /// @notice check that balances are unchanged with a reverting token but burnShares doesn't revert
@@ -1183,13 +1174,9 @@ contract StrategyManagerUnitTests_burnShares is StrategyManagerUnitTests {
 
         cheats.expectRevert("SafeERC20: low-level call failed");
         cheats.prank(address(delegationManagerMock));
-        strategyManager.burnOrDistributeShares(defaultOperatorSet, defaultSlashId, strategy);
+        strategyManager.burnShares(strategy);
 
-        assertEq(
-            strategyManager.getOperatorSetBurnableShares(defaultOperatorSet, defaultSlashId, strategy),
-            sharesToBurn,
-            "burnable shares should be unchanged"
-        );
+        assertEq(strategyManager.getBurnableShares(strategy), sharesToBurn, "burnable shares should be unchanged");
     }
 }
 
@@ -1354,8 +1341,7 @@ contract StrategyManagerUnitTests_removeStrategiesFromDepositWhitelist is Strate
 
 contract StrategyManagerUnitTests_getStrategiesWithBurnableShares is StrategyManagerUnitTests {
     function test_getStrategiesWithBurnableShares_Empty() public view {
-        (address[] memory strategies, uint[] memory shares) =
-            strategyManager.getOperatorSetStrategiesWithBurnableShares(defaultOperatorSet, defaultSlashId);
+        (address[] memory strategies, uint[] memory shares) = strategyManager.getStrategiesWithBurnableShares();
         assertEq(strategies.length, 0, "Should have no strategies when empty");
         assertEq(shares.length, 0, "Should have no shares when empty");
     }
@@ -1369,8 +1355,7 @@ contract StrategyManagerUnitTests_getStrategiesWithBurnableShares is StrategyMan
         strategyManager.increaseBurnableShares(defaultOperatorSet, defaultSlashId, dummyStrat, sharesToAdd);
 
         // Get strategies with burnable shares
-        (address[] memory strategies, uint[] memory shares) =
-            strategyManager.getOperatorSetStrategiesWithBurnableShares(defaultOperatorSet, defaultSlashId);
+        (address[] memory strategies, uint[] memory shares) = strategyManager.getStrategiesWithBurnableShares();
 
         // Verify results
         assertEq(strategies.length, 1, "Should have one strategy");
@@ -1398,8 +1383,7 @@ contract StrategyManagerUnitTests_getStrategiesWithBurnableShares is StrategyMan
         }
 
         // Get strategies with burnable shares
-        (address[] memory returnedStrategies, uint[] memory returnedShares) =
-            strategyManager.getOperatorSetStrategiesWithBurnableShares(defaultOperatorSet, defaultSlashId);
+        (address[] memory returnedStrategies, uint[] memory returnedShares) = strategyManager.getStrategiesWithBurnableShares();
 
         // Verify lengths match
         assertEq(returnedStrategies.length, expectedLength, "Wrong number of strategies returned");
