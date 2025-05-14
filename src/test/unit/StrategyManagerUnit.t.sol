@@ -1114,70 +1114,70 @@ contract StrategyManagerUnitTests_increaseBurnableShares is StrategyManagerUnitT
 }
 
 contract StrategyManagerUnitTests_burnShares is StrategyManagerUnitTests {
-    // function testFuzz_SingleStrategyDeposited(address staker, uint depositAmount, uint sharesToBurn)
-    //     external
-    //     filterFuzzedAddressInputs(staker)
-    // {
-    //     cheats.assume(staker != address(0));
-    //     cheats.assume(staker != address(dummyStrat));
-    //     cheats.assume(sharesToBurn > 0 && sharesToBurn < dummyToken.totalSupply() && depositAmount >= sharesToBurn);
-    //     IStrategy strategy = dummyStrat;
-    //     IERC20 token = dummyToken;
-    //     _depositIntoStrategySuccessfully(strategy, staker, depositAmount);
+// function testFuzz_SingleStrategyDeposited(address staker, uint depositAmount, uint sharesToBurn)
+//     external
+//     filterFuzzedAddressInputs(staker)
+// {
+//     cheats.assume(staker != address(0));
+//     cheats.assume(staker != address(dummyStrat));
+//     cheats.assume(sharesToBurn > 0 && sharesToBurn < dummyToken.totalSupply() && depositAmount >= sharesToBurn);
+//     IStrategy strategy = dummyStrat;
+//     IERC20 token = dummyToken;
+//     _depositIntoStrategySuccessfully(strategy, staker, depositAmount);
 
-    //     // slash shares and increase amount to burn from DelegationManager
-    //     cheats.prank(address(delegationManagerMock));
-    //     cheats.expectEmit(true, true, true, true, address(strategyManager));
-    //     emit BurnableSharesIncreased(defaultOperatorSet, defaultSlashId, strategy, sharesToBurn);
-    //     strategyManager.increaseBurnableShares(defaultOperatorSet, defaultSlashId, strategy, sharesToBurn);
+//     // slash shares and increase amount to burn from DelegationManager
+//     cheats.prank(address(delegationManagerMock));
+//     cheats.expectEmit(true, true, true, true, address(strategyManager));
+//     emit BurnableSharesIncreased(defaultOperatorSet, defaultSlashId, strategy, sharesToBurn);
+//     strategyManager.increaseBurnableShares(defaultOperatorSet, defaultSlashId, strategy, sharesToBurn);
 
-    //     uint strategyBalanceBefore = token.balanceOf(address(strategy));
-    //     uint burnAddressBalanceBefore = token.balanceOf(strategyManager.DEFAULT_BURN_ADDRESS());
-    //     cheats.prank(address(delegationManagerMock));
-    //     // cheats.expectEmit(true, true, true, true, address(strategyManager));
-    //     // emit BurnableSharesDecreased(
-    //     //     OperatorSet(address(strategyManager), type(uint32).max), type(uint).max, strategy, DEFAULT_BURN_ADDRESS, sharesToBurn
-    //     // );
-    //     strategyManager.burnShares(strategy);
-    //     uint strategyBalanceAfter = token.balanceOf(address(strategy));
-    //     uint burnAddressBalanceAfter = token.balanceOf(strategyManager.DEFAULT_BURN_ADDRESS());
+//     uint strategyBalanceBefore = token.balanceOf(address(strategy));
+//     uint burnAddressBalanceBefore = token.balanceOf(strategyManager.DEFAULT_BURN_ADDRESS());
+//     cheats.prank(address(delegationManagerMock));
+//     // cheats.expectEmit(true, true, true, true, address(strategyManager));
+//     // emit BurnableSharesDecreased(
+//     //     OperatorSet(address(strategyManager), type(uint32).max), type(uint).max, strategy, DEFAULT_BURN_ADDRESS, sharesToBurn
+//     // );
+//     strategyManager.burnShares(strategy);
+//     uint strategyBalanceAfter = token.balanceOf(address(strategy));
+//     uint burnAddressBalanceAfter = token.balanceOf(strategyManager.DEFAULT_BURN_ADDRESS());
 
-    //     assertEq(strategyBalanceBefore - sharesToBurn, strategyBalanceAfter, "strategyBalanceBefore - sharesToBurn != strategyBalanceAfter");
-    //     assertEq(burnAddressBalanceAfter, burnAddressBalanceBefore + sharesToBurn, "balanceAfter != balanceBefore + sharesAmount");
+//     assertEq(strategyBalanceBefore - sharesToBurn, strategyBalanceAfter, "strategyBalanceBefore - sharesToBurn != strategyBalanceAfter");
+//     assertEq(burnAddressBalanceAfter, burnAddressBalanceBefore + sharesToBurn, "balanceAfter != balanceBefore + sharesAmount");
 
-    //     // Verify strategy was removed from burnable sharesc
-    //     (address[] memory strategiesAfterBurn,) = strategyManager.getStrategiesWithBurnableShares();
-    //     assertEq(strategiesAfterBurn.length, 0, "Should have no strategies after burning");
-    //     assertEq(strategyManager.getBurnableShares(strategy), 0, "getBurnableShares should return 0 after burning");
-    // }
+//     // Verify strategy was removed from burnable sharesc
+//     (address[] memory strategiesAfterBurn,) = strategyManager.getStrategiesWithBurnableShares();
+//     assertEq(strategiesAfterBurn.length, 0, "Should have no strategies after burning");
+//     assertEq(strategyManager.getBurnableShares(strategy), 0, "getBurnableShares should return 0 after burning");
+// }
 
-    // /// @notice check that balances are unchanged with a reverting token but burnShares doesn't revert
-    // function testFuzz_BurnableSharesUnchangedWithRevertToken(address staker, uint depositAmount, uint sharesToBurn)
-    //     external
-    //     filterFuzzedAddressInputs(staker)
-    // {
-    //     cheats.assume(staker != address(0));
-    //     cheats.assume(sharesToBurn > 0 && sharesToBurn < dummyToken.totalSupply() && depositAmount >= sharesToBurn);
-    //     IStrategy strategy = dummyStrat;
-    //     IERC20 token = dummyToken;
-    //     _depositIntoStrategySuccessfully(strategy, staker, depositAmount);
+// /// @notice check that balances are unchanged with a reverting token but burnShares doesn't revert
+// function testFuzz_BurnableSharesUnchangedWithRevertToken(address staker, uint depositAmount, uint sharesToBurn)
+//     external
+//     filterFuzzedAddressInputs(staker)
+// {
+//     cheats.assume(staker != address(0));
+//     cheats.assume(sharesToBurn > 0 && sharesToBurn < dummyToken.totalSupply() && depositAmount >= sharesToBurn);
+//     IStrategy strategy = dummyStrat;
+//     IERC20 token = dummyToken;
+//     _depositIntoStrategySuccessfully(strategy, staker, depositAmount);
 
-    //     // slash shares and increase amount to burn from DelegationManager
-    //     cheats.prank(address(delegationManagerMock));
-    //     cheats.expectEmit(true, true, true, true, address(strategyManager));
-    //     emit BurnableSharesIncreased(defaultOperatorSet, defaultSlashId, strategy, sharesToBurn);
-    //     strategyManager.increaseBurnableShares(defaultOperatorSet, defaultSlashId, strategy, sharesToBurn);
+//     // slash shares and increase amount to burn from DelegationManager
+//     cheats.prank(address(delegationManagerMock));
+//     cheats.expectEmit(true, true, true, true, address(strategyManager));
+//     emit BurnableSharesIncreased(defaultOperatorSet, defaultSlashId, strategy, sharesToBurn);
+//     strategyManager.increaseBurnableShares(defaultOperatorSet, defaultSlashId, strategy, sharesToBurn);
 
-    //     // Now set token to be contract that reverts simulating an upgrade
-    //     cheats.etch(address(token), address(revertToken).code);
-    //     ERC20_SetTransferReverting_Mock(address(token)).setTransfersRevert(true);
+//     // Now set token to be contract that reverts simulating an upgrade
+//     cheats.etch(address(token), address(revertToken).code);
+//     ERC20_SetTransferReverting_Mock(address(token)).setTransfersRevert(true);
 
-    //     cheats.expectRevert("SafeERC20: low-level call failed");
-    //     cheats.prank(address(delegationManagerMock));
-    //     strategyManager.burnShares(strategy);
+//     cheats.expectRevert("SafeERC20: low-level call failed");
+//     cheats.prank(address(delegationManagerMock));
+//     strategyManager.burnShares(strategy);
 
-    //     assertEq(strategyManager.getBurnableShares(strategy), sharesToBurn, "burnable shares should be unchanged");
-    // }
+//     assertEq(strategyManager.getBurnableShares(strategy), sharesToBurn, "burnable shares should be unchanged");
+// }
 }
 
 contract StrategyManagerUnitTests_setStrategyWhitelister is StrategyManagerUnitTests {
