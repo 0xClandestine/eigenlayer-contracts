@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
+import "@openzeppelin-upgrades/contracts/proxy/ClonesUpgradeable.sol";
 import "@openzeppelin-upgrades/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin-upgrades/contracts/security/ReentrancyGuardUpgradeable.sol";
 import "../mixins/Deprecated_OwnableUpgradeable.sol";
@@ -21,12 +22,12 @@ contract AllocationManager is
     SemVerMixin
 {
     using DoubleEndedQueue for DoubleEndedQueue.Bytes32Deque;
-    using EnumerableSet for *;
-    using SafeCast for *;
-
     using Snapshots for Snapshots.DefaultWadHistory;
     using OperatorSetLib for OperatorSet;
     using SlashingLib for uint256;
+    using ClonesUpgradeable for *;
+    using EnumerableSet for *;
+    using SafeCast for *;
 
     /**
      *

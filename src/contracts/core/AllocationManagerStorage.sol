@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/utils/structs/DoubleEndedQueue.sol";
 
 import "../interfaces/IAllocationManager.sol";
 import "../interfaces/IDelegationManager.sol";
-
+import "../interfaces/IRedistributionEscrow.sol";
 import {Snapshots} from "../libraries/Snapshots.sol";
 
 abstract contract AllocationManagerStorage is IAllocationManager {
@@ -36,6 +36,9 @@ abstract contract AllocationManagerStorage is IAllocationManager {
 
     /// @notice The DelegationManager contract for EigenLayer
     IDelegationManager public immutable delegation;
+
+    /// @notice The RedistributionEscrow contract for EigenLayer
+    IRedistributionEscrow public immutable redistributionEscrowImplementation;
 
     /// @notice Delay before deallocations are clearable and can be added back into freeMagnitude
     /// In this window, deallocations still remain slashable by the operatorSet they were allocated to.
