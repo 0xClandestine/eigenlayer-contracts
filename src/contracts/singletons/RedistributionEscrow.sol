@@ -15,6 +15,40 @@ contract RedistributionEscrow is IRedistributionEscrow {
     bool public paused;
 
     /// -----------------------------------------------------------------------
+    /// Modifiers
+    /// -----------------------------------------------------------------------
+
+    modifier checkParameters(
+        IRedistributionEscrow implementation,
+        IAllocationManager allocationManager,
+        SaltParams calldata params
+    ) {
+        _checkParameters(implementation, allocationManager, params);
+        _;
+    }
+
+    modifier onlyAllocationManager(
+        IAllocationManager allocationManager
+    ) {
+        _checkAllocationManager(allocationManager);
+        _;
+    }
+
+    function _checkParameters(
+        IRedistributionEscrow implementation,
+        IAllocationManager allocationManager,
+        SaltParams calldata params
+    ) internal view virtual {
+        require(verify(implementation, allocationManager, params), InvalidParameters());
+    }
+
+    function _checkAllocationManager(
+        IAllocationManager allocationManager
+    ) internal view virtual {
+        require(msg.sender == address(allocationManager), OnlyAllocationManager());
+    }
+
+    /// -----------------------------------------------------------------------
     /// Actions
     /// -----------------------------------------------------------------------
 
@@ -24,10 +58,7 @@ contract RedistributionEscrow is IRedistributionEscrow {
         IAllocationManager allocationManager,
         SaltParams calldata params,
         IERC20 token
-    ) external virtual override {
-        // Assert that the provided initialization parameters of this contract are valid.
-        require(verify(implementation, allocationManager, params), InvalidEscrow());
-
+    ) external virtual checkParameters(implementation, allocationManager, params) {
         // Assert that the maturity has elapsed.
         require(block.number >= params.maturity, MaturityNotElapsed());
 
@@ -39,20 +70,38 @@ contract RedistributionEscrow is IRedistributionEscrow {
     function pause(
         IRedistributionEscrow implementation,
         IAllocationManager allocationManager,
-        SaltParams calldata params,
-        string calldata reason
-    ) external virtual override {
-        // Assert that the provided initialization parameters of this contract are valid.
-        require(verify(implementation, allocationManager, params), InvalidEscrow());
+        SaltParams calldata params
+    )
+        external
+        virtual
+        checkParameters(implementation, allocationManager, params)
+        onlyAllocationManager(allocationManager)
+    {
+        if (!paused) {
+            // Pause the escrow.
+            paused = true;
+            // Emit an event since state was mutated.
+            emit Paused();
+        }
+    }
 
-        // Assert that the caller is the pauser.
-        require(msg.sender == params.pauser, OnlyPauser());
-
-        // Pause the escrow.
-        paused = true;
-
-        // Emit an event since state was mutated.
-        emit Paused(reason);
+    /// @inheritdoc IRedistributionEscrow
+    function unpause(
+        IRedistributionEscrow implementation,
+        IAllocationManager allocationManager,
+        SaltParams calldata params
+    )
+        external
+        virtual
+        checkParameters(implementation, allocationManager, params)
+        onlyAllocationManager(allocationManager)
+    {
+        if (paused) {
+            // Unpause the escrow.
+            paused = false;
+            // Emit an event since state was mutated.
+            emit Unpaused();
+        }
     }
 
     /// -----------------------------------------------------------------------
@@ -64,7 +113,7 @@ contract RedistributionEscrow is IRedistributionEscrow {
         IRedistributionEscrow implementation,
         IAllocationManager allocationManager,
         SaltParams calldata params
-    ) public view virtual override returns (bool) {
+    ) public view virtual returns (bool) {
         return ClonesUpgradeable.predictDeterministicAddress({
             implementation: address(implementation),
             salt: computeSalt(params),
@@ -75,7 +124,7 @@ contract RedistributionEscrow is IRedistributionEscrow {
     /// @inheritdoc IRedistributionEscrow
     function computeSalt(
         SaltParams calldata params
-    ) public pure virtual override returns (bytes32) {
+    ) public pure virtual returns (bytes32) {
         return keccak256(abi.encode(params));
     }
 }

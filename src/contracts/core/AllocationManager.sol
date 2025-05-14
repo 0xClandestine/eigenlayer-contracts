@@ -61,8 +61,6 @@ contract AllocationManager is
         _setPausedStatus(initialPausedStatus);
     }
 
-    // TODO: properly return shares slashed
-
     /// @inheritdoc IAllocationManager
     function slashOperator(
         address avs,
