@@ -56,7 +56,9 @@ interface ISlashingWithdrawalRouterEvents is ISlashingWithdrawalRouterTypes {
 interface ISlashingWithdrawalRouter is ISlashingWithdrawalRouterErrors, ISlashingWithdrawalRouterEvents {
     /// @notice Initializes initial admin, pauser, and unpauser roles.
     /// @param initialPausedStatus The initial paused status of the router.
-    function initialize(uint256 initialPausedStatus) external;
+    function initialize(
+        uint256 initialPausedStatus
+    ) external;
 
     /// @notice Locks up a redistribution.
     /// @param operatorSet The operator set whose redistribution is being locked up.

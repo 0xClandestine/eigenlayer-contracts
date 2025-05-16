@@ -43,19 +43,19 @@ abstract contract Pausable is IPausable {
 
     /// @dev Thrown if the caller is not a valid pauser according to the pauser registry.
     modifier onlyPauser() {
-        require(pauserRegistry.isPauser(msg.sender), OnlyPauser());
+        _checkOnlyPauser();
         _;
     }
 
     /// @dev Thrown if the caller is not a valid unpauser according to the pauser registry.
     modifier onlyUnpauser() {
-        require(msg.sender == pauserRegistry.unpauser(), OnlyUnpauser());
+        _checkOnlyUnpauser();
         _;
     }
 
     /// @dev Thrown if the contract is paused, i.e. if any of the bits in `_paused` is flipped to 1.
     modifier whenNotPaused() {
-        require(_paused == 0, CurrentlyPaused());
+        _checkOnlyWhenNotPaused();
         _;
     }
 
@@ -65,6 +65,18 @@ abstract contract Pausable is IPausable {
     ) {
         _checkOnlyWhenNotPaused(index);
         _;
+    }
+
+    function _checkOnlyPauser() internal view {
+        require(pauserRegistry.isPauser(msg.sender), OnlyPauser());
+    }
+
+    function _checkOnlyUnpauser() internal view {
+        require(msg.sender == pauserRegistry.unpauser(), OnlyUnpauser());
+    }
+
+    function _checkOnlyWhenNotPaused() internal view {
+        require(_paused == 0, CurrentlyPaused());
     }
 
     function _checkOnlyWhenNotPaused(

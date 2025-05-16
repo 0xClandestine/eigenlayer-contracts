@@ -89,10 +89,7 @@ contract SlashingWithdrawalRouter is
     }
 
     /// @inheritdoc ISlashingWithdrawalRouter
-    function burnOrRedistributeShares(
-        OperatorSet calldata operatorSet,
-        uint256 slashId
-    ) external {
+    function burnOrRedistributeShares(OperatorSet calldata operatorSet, uint256 slashId) external {
         RedistributionEscrow storage escrow = _escrow[operatorSet.key()][slashId];
 
         // TODO: Only releaser can call this.
