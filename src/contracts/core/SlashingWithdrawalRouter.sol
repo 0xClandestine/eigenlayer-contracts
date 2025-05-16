@@ -2,7 +2,6 @@
 pragma solidity ^0.8.27;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin-upgrades/contracts/proxy/ClonesUpgradeable.sol";
 import "@openzeppelin-upgrades/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin-upgrades/contracts/access/AccessControlUpgradeable.sol";
 import "../mixins/SemVerMixin.sol";
@@ -83,8 +82,10 @@ contract SlashingWithdrawalRouter is
     /// Actions
     /// -----------------------------------------------------------------------
 
+    // TODO: This should take in a list of tokens and amounts corresponding to each strategy that was slashed.
+
     /// @inheritdoc ISlashingWithdrawalRouter
-    function initiateRedistribution(
+    function startBurnOrRedistributeShares(
         OperatorSet calldata operatorSet,
         uint256 slashId,
         IERC20 token,
@@ -109,7 +110,7 @@ contract SlashingWithdrawalRouter is
     }
 
     /// @inheritdoc ISlashingWithdrawalRouter
-    function releaseRedistribution(
+    function burnOrRedistributeShares(
         OperatorSet calldata operatorSet,
         uint256 slashId
     ) external onlyReleaser(operatorSet) {

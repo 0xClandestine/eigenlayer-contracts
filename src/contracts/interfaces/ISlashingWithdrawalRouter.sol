@@ -69,7 +69,7 @@ interface ISlashingWithdrawalRouter is ISlashingWithdrawalRouterErrors, ISlashin
     /// @param token The token that is being redistributed.
     /// @param amount The amount of tokens that is being redistributed.
     /// @param maturity The block number at which the escrow will be released, assuming the redistribution is not paused.
-    function initiateRedistribution(
+    function startBurnOrRedistributeShares(
         OperatorSet calldata operatorSet,
         uint256 slashId,
         IERC20 token,
@@ -80,10 +80,7 @@ interface ISlashingWithdrawalRouter is ISlashingWithdrawalRouterErrors, ISlashin
     /// @notice Releases a redistribution.
     /// @param operatorSet The operator set whose redistribution is being released.
     /// @param slashId The slash ID of the redistribution that is being released.
-    function releaseRedistribution(
-        OperatorSet calldata operatorSet,
-        uint256 slashId
-    ) external;
+    function burnOrRedistributeShares(OperatorSet calldata operatorSet, uint256 slashId) external;
 
     /// NOTE: Will likely want arrayfied or range-based aliases so we can quickly pause spammed malicious slashes.
 
