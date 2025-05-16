@@ -1,21 +1,13 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
+import "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 import "../interfaces/ISlashingWithdrawalRouter.sol";
 import "../interfaces/IAllocationManager.sol";
 import "../interfaces/IStrategyManager.sol";
+import "../interfaces/IStrategy.sol";
 
 abstract contract SlashingWithdrawalRouterStorage is ISlashingWithdrawalRouter {
-    /// -----------------------------------------------------------------------
-    /// Constants
-    /// -----------------------------------------------------------------------
-
-    /// @notice Role privledged with the ability to pause redistribution.
-    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
-
-    /// @notice Role privledged with the ability to unpause redistribution.
-    bytes32 public constant UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
-
     /// -----------------------------------------------------------------------
     /// Immutable Storage
     /// -----------------------------------------------------------------------
@@ -31,7 +23,10 @@ abstract contract SlashingWithdrawalRouterStorage is ISlashingWithdrawalRouter {
     /// -----------------------------------------------------------------------
 
     /// @notice Returns the escrow for a given operator set and slash ID.
-    mapping(bytes32 operatorSetKey => mapping(uint256 slashId => RedistributionEscrow escrow)) internal _escrow;
+    mapping(bytes32 operatorSetKey => mapping(uint256 slashId => RedistributionEscrow[] escrow)) internal _escrow;
+
+    /// @notice Returns the paused status for a given operator set and slash ID.
+    mapping(bytes32 operatorSetKey => mapping(uint256 slashId => bool paused)) internal _paused;
 
     /// -----------------------------------------------------------------------
     /// Construction

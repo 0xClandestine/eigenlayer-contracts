@@ -30,7 +30,7 @@ contract SlashingWithdrawalRouter is
 
     /// @dev Checks whether a caller is the `StrategyManager`, throws `UnauthorizedCaller` if not.
     function _checkOnlyStrategyManager() internal view virtual {
-        require(msg.sender == address(strategyManager), UnauthorizedCaller());
+        require(msg.sender == address(strategyManager), OnlyStrategyManager());
     }
 
     /// -----------------------------------------------------------------------
@@ -61,68 +61,84 @@ contract SlashingWithdrawalRouter is
     /// Actions
     /// -----------------------------------------------------------------------
 
-    // TODO: This should take in a list of tokens and amounts corresponding to each strategy that was slashed.
-
     /// @inheritdoc ISlashingWithdrawalRouter
     function startBurnOrRedistributeShares(
         OperatorSet calldata operatorSet,
         uint256 slashId,
-        IERC20 token,
-        uint256 amount,
-        uint32 maturity
+        IERC20[] calldata tokens,
+        uint256[] calldata underlyingAmounts
     ) external onlyStrategyManager {
-        RedistributionEscrow storage escrow = _escrow[operatorSet.key()][slashId];
+        // Create a storage pointer to the escrow array.
+        RedistributionEscrow[] storage escrow = _escrow[operatorSet.key()][slashId];
 
-        // Assert that the token is not the zero address for sanity.
-        require(token != IERC20(address(0)), InputAddressZero());
+        // Assert that the input arrays are of the same length.
+        require(tokens.length == underlyingAmounts.length, InputArrayLengthMismatch());
 
-        // Assert that the redistribution does not already exist.
-        require(escrow.token == IERC20(address(0)), RedistributionAlreadyExists());
+        // Start a redistribution for each strategy that was slashed.
+        for (uint256 i = 0; i < tokens.length; i++) {
+            // Assert that the token is not the zero address for sanity.
+            require(tokens[i] != IERC20(address(0)), InputAddressZero());
 
-        // Store the escrowed redistribution.
-        escrow.amount = amount;
-        escrow.token = token;
-        escrow.maturity = maturity;
+            // Store the escrowed redistribution.
+            escrow.push(
+                RedistributionEscrow({
+                    underlyingAmount: underlyingAmounts[i],
+                    token: tokens[i],
+                    startBlock: uint32(block.number)
+                })
+            );
 
-        // Emit the event.
-        emit RedistributionInitiated(operatorSet, slashId, token, amount, maturity);
+            // Emit the event.
+            emit RedistributionInitiated(operatorSet, slashId, tokens[i], underlyingAmounts[i], uint32(block.number));
+        }
     }
+
+    // TODO: Only releaser can call this.
 
     /// @inheritdoc ISlashingWithdrawalRouter
     function burnOrRedistributeShares(OperatorSet calldata operatorSet, uint256 slashId) external {
-        RedistributionEscrow storage escrow = _escrow[operatorSet.key()][slashId];
-
-        // TODO: Only releaser can call this.
-
-        // Assert that the redistribution is not paused.
-        require(!escrow.paused, RedistributionCurrentlyPaused());
-
-        // QUESTION: How do we want to check maturity? Are we storing it during initiation or parsing JIT?
-
-        // Assert that the current block number is greater than or equal to the maturity.
-        require(block.number >= escrow.maturity, RedistributionNotMature());
-
+        // Fetch the redistribution recipient for the operator set from the AllocationManager.
         address redistributionRecipient = allocationManager.getRedistributionRecipient(operatorSet);
 
-        // Transfer the escrowed tokens to the caller.
-        escrow.token.safeTransfer(redistributionRecipient, escrow.amount);
+        // Create a storage pointer to the escrow array.
+        RedistributionEscrow[] storage escrow = _escrow[operatorSet.key()][slashId];
 
-        // Set the amount to 0 to prevent double spending.
-        escrow.amount = 0;
+        // Fetch the length of the escrow array.
+        uint256 n = escrow.length;
 
-        // Emit the event.
-        emit RedistributionReleased(operatorSet, slashId, escrow.token, escrow.amount, redistributionRecipient);
+        // Assert that the escrow is not paused.
+        require(!_paused[operatorSet.key()][slashId], RedistributionCurrentlyPaused());
+
+        // Iterate over the escrow array in reverse order and pop the processed entries from storage.
+        for (uint256 i = n; i > 0; i--) {
+            uint256 index = i - 1;
+
+            // TODO: Add configurable delay on a strategy-by-strategy basis for each operator set within ALM and update 3.5 day constant.
+
+            if (block.number > escrow[index].startBlock + (3.5 days / 12 seconds)) {
+                // Emit the event.
+                emit RedistributionReleased(
+                    operatorSet, slashId, escrow[index].token, escrow[index].underlyingAmount, redistributionRecipient
+                );
+
+                // Transfer the escrowed tokens to the caller.
+                escrow[index].token.safeTransfer(redistributionRecipient, escrow[index].underlyingAmount);
+
+                // Remove the processed entry.
+                escrow.pop();
+            }
+        }
     }
 
     /// @inheritdoc ISlashingWithdrawalRouter
     function pauseRedistribution(OperatorSet calldata operatorSet, uint256 slashId) external onlyPauser {
-        RedistributionEscrow storage escrow = _escrow[operatorSet.key()][slashId];
+        bool paused = _paused[operatorSet.key()][slashId];
 
         // Assert that the redistribution is not already paused.
-        require(!escrow.paused, RedistributionCurrentlyPaused());
+        require(!paused, RedistributionCurrentlyPaused());
 
         // Set the paused flag to true.
-        escrow.paused = true;
+        _paused[operatorSet.key()][slashId] = true;
 
         // Emit the event.
         emit RedistributionPaused(operatorSet, slashId);
@@ -130,13 +146,13 @@ contract SlashingWithdrawalRouter is
 
     /// @inheritdoc ISlashingWithdrawalRouter
     function unpauseRedistribution(OperatorSet calldata operatorSet, uint256 slashId) external onlyUnpauser {
-        RedistributionEscrow storage escrow = _escrow[operatorSet.key()][slashId];
+        bool paused = _paused[operatorSet.key()][slashId];
 
         // Assert that the redistribution is already paused.
-        require(escrow.paused, RedistributionNotPaused());
+        require(paused, RedistributionNotPaused());
 
         // Set the paused flag to false.
-        escrow.paused = false;
+        _paused[operatorSet.key()][slashId] = false;
 
         // Emit the event.
         emit RedistributionUnpaused(operatorSet, slashId);

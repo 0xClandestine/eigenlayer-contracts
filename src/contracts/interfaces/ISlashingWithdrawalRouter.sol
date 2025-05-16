@@ -5,45 +5,40 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../libraries/OperatorSetLib.sol";
 
 interface ISlashingWithdrawalRouterErrors {
-    /// @notice Thrown when a redistribution already exists.
-    error RedistributionAlreadyExists();
+    /// @notice Thrown when the input arrays are of different lengths.
+    error InputArrayLengthMismatch();
 
-    /// @notice Thrown when a caller does not have the necessary role to perform an action.
-    error UnauthorizedCaller();
+    /// @notice Thrown when a caller is not the strategy manager.
+    error OnlyStrategyManager();
 
     /// @notice Thrown when a redistribution is already paused.
     error RedistributionCurrentlyPaused();
 
     /// @notice Thrown when a redistribution is not paused.
     error RedistributionNotPaused();
-
-    /// @notice Thrown when a redistribution is not mature.
-    error RedistributionNotMature();
 }
 
 interface ISlashingWithdrawalRouterTypes {
     /// @notice A struct that represents an escrow for a redistribution.
-    /// @param amount The amount of tokens that is being redistributed.
+    /// @param underlyingAmount The amount of tokens that is being redistributed.
     /// @param token The token that is being redistributed.
-    /// @param maturity The block number at which the escrow will be released, assuming the redistribution is not paused.
-    /// @param paused Whether the redistribution is paused.
+    /// @param startBlock The block number at which the escrow will be released, assuming the redistribution is not paused.
     struct RedistributionEscrow {
-        uint256 amount;
+        uint256 underlyingAmount;
         IERC20 token;
-        uint32 maturity;
-        bool paused;
+        uint32 startBlock;
     }
 }
 
 interface ISlashingWithdrawalRouterEvents is ISlashingWithdrawalRouterTypes {
     /// @notice Emitted when a redistribution is initiated.
     event RedistributionInitiated(
-        OperatorSet operatorSet, uint256 slashId, IERC20 token, uint256 amount, uint32 maturity
+        OperatorSet operatorSet, uint256 slashId, IERC20 token, uint256 underlyingAmount, uint32 startBlock
     );
 
     /// @notice Emitted when a redistribution is released.
     event RedistributionReleased(
-        OperatorSet operatorSet, uint256 slashId, IERC20 token, uint256 amount, address recipient
+        OperatorSet operatorSet, uint256 slashId, IERC20 token, uint256 underlyingAmount, address recipient
     );
 
     /// @notice Emitted when a redistribution is paused.
@@ -63,15 +58,13 @@ interface ISlashingWithdrawalRouter is ISlashingWithdrawalRouterErrors, ISlashin
     /// @notice Locks up a redistribution.
     /// @param operatorSet The operator set whose redistribution is being locked up.
     /// @param slashId The slash ID of the redistribution that is being locked up.
-    /// @param token The token that is being redistributed.
-    /// @param amount The amount of tokens that is being redistributed.
-    /// @param maturity The block number at which the escrow will be released, assuming the redistribution is not paused.
+    /// @param tokens The tokens that are being redistributed.
+    /// @param underlyingAmounts The amounts of tokens that are being redistributed.
     function startBurnOrRedistributeShares(
         OperatorSet calldata operatorSet,
         uint256 slashId,
-        IERC20 token,
-        uint256 amount,
-        uint32 maturity
+        IERC20[] calldata tokens,
+        uint256[] calldata underlyingAmounts
     ) external;
 
     /// @notice Releases a redistribution.
