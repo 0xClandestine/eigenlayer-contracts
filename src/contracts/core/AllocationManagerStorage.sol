@@ -6,7 +6,6 @@ import "@openzeppelin/contracts/utils/structs/DoubleEndedQueue.sol";
 
 import "../interfaces/IAllocationManager.sol";
 import "../interfaces/IDelegationManager.sol";
-
 import {Snapshots} from "../libraries/Snapshots.sol";
 
 abstract contract AllocationManagerStorage is IAllocationManager {

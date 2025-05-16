@@ -21,12 +21,11 @@ contract AllocationManager is
     SemVerMixin
 {
     using DoubleEndedQueue for DoubleEndedQueue.Bytes32Deque;
-    using EnumerableSet for *;
-    using SafeCast for *;
-
     using Snapshots for Snapshots.DefaultWadHistory;
     using OperatorSetLib for OperatorSet;
     using SlashingLib for uint256;
+    using EnumerableSet for *;
+    using SafeCast for *;
 
     /**
      *
@@ -59,8 +58,6 @@ contract AllocationManager is
     ) external initializer {
         _setPausedStatus(initialPausedStatus);
     }
-
-    // TODO: properly return shares slashed
 
     /// @inheritdoc IAllocationManager
     function slashOperator(
