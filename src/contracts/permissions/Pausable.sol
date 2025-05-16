@@ -63,8 +63,14 @@ abstract contract Pausable is IPausable {
     modifier onlyWhenNotPaused(
         uint8 index
     ) {
-        require(!paused(index), CurrentlyPaused());
+        _checkOnlyWhenNotPaused(index);
         _;
+    }
+
+    function _checkOnlyWhenNotPaused(
+        uint8 index
+    ) internal view {
+        require(!paused(index), CurrentlyPaused());
     }
 
     /// Construction
