@@ -4,6 +4,7 @@ pragma solidity ^0.8.27;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin-upgrades/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin-upgrades/contracts/access/AccessControlUpgradeable.sol";
+import "../permissions/Pausable.sol";
 import "../mixins/SemVerMixin.sol";
 import "./SlashingWithdrawalRouterStorage.sol";
 
@@ -11,6 +12,7 @@ contract SlashingWithdrawalRouter is
     Initializable,
     SlashingWithdrawalRouterStorage,
     AccessControlUpgradeable,
+    Pausable,
     SemVerMixin
 {
     using SafeERC20 for IERC20;
@@ -20,38 +22,10 @@ contract SlashingWithdrawalRouter is
     /// Modifiers
     /// -----------------------------------------------------------------------
 
-    /// @dev Checks whether a caller has the `PAUSER_ROLE`.
-    modifier onlyPauser() {
-        _checkHasRole(PAUSER_ROLE);
-        _;
-    }
-
-    /// @dev Checks whether a caller has the `UNPAUSER_ROLE`.
-    modifier onlyUnpauser() {
-        _checkHasRole(UNPAUSER_ROLE);
-        _;
-    }
-
-    /// @dev Checks whether a caller has the `RELEASER_ROLE` for a given operator set.
-    ///     Note that `operatorSet.key()` is also the releaser role key.
-    modifier onlyReleaser(
-        OperatorSet calldata operatorSet
-    ) {
-        _checkHasRole(operatorSet.key());
-        _;
-    }
-
     /// @dev Checks whether a caller is the `StrategyManager`.
     modifier onlyStrategyManager() {
         _checkOnlyStrategyManager();
         _;
-    }
-
-    /// @dev Checks whether a caller has a given role, throws `UnauthorizedCaller` if not.
-    function _checkHasRole(
-        bytes32 role
-    ) internal view virtual {
-        require(hasRole(role, msg.sender), UnauthorizedCaller());
     }
 
     /// @dev Checks whether a caller is the `StrategyManager`, throws `UnauthorizedCaller` if not.
@@ -66,16 +40,21 @@ contract SlashingWithdrawalRouter is
     constructor(
         IAllocationManager _allocationManager,
         IStrategyManager _strategyManager,
+        IPauserRegistry _pauserRegistry,
         string memory _version
-    ) SlashingWithdrawalRouterStorage(_allocationManager, _strategyManager) SemVerMixin(_version) {
+    )
+        SlashingWithdrawalRouterStorage(_allocationManager, _strategyManager)
+        Pausable(_pauserRegistry)
+        SemVerMixin(_version)
+    {
         _disableInitializers();
     }
 
     /// @inheritdoc ISlashingWithdrawalRouter
-    function initialize(address initialAdmin, address initialPauser, address initialUnpauser) external initializer {
-        _grantRole(DEFAULT_ADMIN_ROLE, initialAdmin);
-        _grantRole(PAUSER_ROLE, initialPauser);
-        _grantRole(UNPAUSER_ROLE, initialUnpauser);
+    function initialize(
+        uint256 initialPausedStatus
+    ) external initializer {
+        _setPausedStatus(initialPausedStatus);
     }
 
     /// -----------------------------------------------------------------------
@@ -113,8 +92,10 @@ contract SlashingWithdrawalRouter is
     function burnOrRedistributeShares(
         OperatorSet calldata operatorSet,
         uint256 slashId
-    ) external onlyReleaser(operatorSet) {
+    ) external {
         RedistributionEscrow storage escrow = _escrow[operatorSet.key()][slashId];
+
+        // TODO: Only releaser can call this.
 
         // Assert that the redistribution is not paused.
         require(!escrow.paused, RedistributionCurrentlyPaused());

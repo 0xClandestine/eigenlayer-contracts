@@ -5,9 +5,6 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../libraries/OperatorSetLib.sol";
 
 interface ISlashingWithdrawalRouterErrors {
-    /// @notice Thrown when a null address is provided as an input.
-    error InputAddressZero();
-
     /// @notice Thrown when a redistribution already exists.
     error RedistributionAlreadyExists();
 
@@ -58,10 +55,8 @@ interface ISlashingWithdrawalRouterEvents is ISlashingWithdrawalRouterTypes {
 
 interface ISlashingWithdrawalRouter is ISlashingWithdrawalRouterErrors, ISlashingWithdrawalRouterEvents {
     /// @notice Initializes initial admin, pauser, and unpauser roles.
-    /// @param initialAdmin The address of the initial admin.
-    /// @param initialPauser The address of the initial pauser.
-    /// @param initialUnpauser The address of the initial unpauser.
-    function initialize(address initialAdmin, address initialPauser, address initialUnpauser) external;
+    /// @param initialPausedStatus The initial paused status of the router.
+    function initialize(uint256 initialPausedStatus) external;
 
     /// @notice Locks up a redistribution.
     /// @param operatorSet The operator set whose redistribution is being locked up.
