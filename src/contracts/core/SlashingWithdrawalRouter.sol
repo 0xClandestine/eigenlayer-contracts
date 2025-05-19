@@ -60,7 +60,7 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
         uint256 slashId,
         IStrategy[] calldata strategies,
         uint256[] calldata underlyingAmounts
-    ) external onlyStrategyManager {
+    ) external virtual onlyStrategyManager {
         // Assert that the input arrays are of the same length.
         require(strategies.length == underlyingAmounts.length, InputArrayLengthMismatch());
 
@@ -78,13 +78,14 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
             );
         }
 
+        // Update storage.
         escrow.underlyingAmounts = underlyingAmounts;
         escrow.strategies = strategies;
         escrow.startBlock = uint32(block.number);
     }
 
     /// @inheritdoc ISlashingWithdrawalRouter
-    function burnOrRedistributeShares(OperatorSet calldata operatorSet, uint256 slashId) external {
+    function burnOrRedistributeShares(OperatorSet calldata operatorSet, uint256 slashId) external virtual {
         // Assert that the escrow is not paused.
         require(!_paused[operatorSet.key()][slashId], RedistributionCurrentlyPaused());
 
@@ -137,7 +138,7 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
     /// -----------------------------------------------------------------------
 
     /// @inheritdoc ISlashingWithdrawalRouter
-    function pauseRedistribution(OperatorSet calldata operatorSet, uint256 slashId) external onlyPauser {
+    function pauseRedistribution(OperatorSet calldata operatorSet, uint256 slashId) external virtual onlyPauser {
         bool paused = _paused[operatorSet.key()][slashId];
 
         // Assert that the redistribution is not already paused.
@@ -151,7 +152,7 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
     }
 
     /// @inheritdoc ISlashingWithdrawalRouter
-    function unpauseRedistribution(OperatorSet calldata operatorSet, uint256 slashId) external onlyUnpauser {
+    function unpauseRedistribution(OperatorSet calldata operatorSet, uint256 slashId) external virtual onlyUnpauser {
         bool paused = _paused[operatorSet.key()][slashId];
 
         // Assert that the redistribution is already paused.
