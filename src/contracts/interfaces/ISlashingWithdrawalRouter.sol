@@ -5,9 +5,6 @@ import "../interfaces/IStrategy.sol";
 import "../libraries/OperatorSetLib.sol";
 
 interface ISlashingWithdrawalRouterErrors {
-    /// @notice Thrown when the input arrays are of different lengths.
-    error InputArrayLengthMismatch();
-
     /// @notice Thrown when a caller is not the strategy manager.
     error OnlyStrategyManager();
 
