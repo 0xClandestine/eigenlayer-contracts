@@ -404,8 +404,7 @@ contract AllocationManager is
             slashId: slashId,
             strategies: params.strategies,
             prevMaxMagnitudes: prevMaxMagnitudes,
-            newMaxMagnitudes: newMaxMagnitudes,
-            redistributionRecipient: getRedistributionRecipient(operatorSet)
+            newMaxMagnitudes: newMaxMagnitudes
         });
 
         emit OperatorSlashed(params.operator, operatorSet, params.strategies, wadSlashed, params.description);

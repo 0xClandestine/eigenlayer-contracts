@@ -284,19 +284,12 @@ contract DelegationManager is
         uint256 slashId,
         IStrategy[] calldata strategies,
         uint64[] calldata prevMaxMagnitudes,
-        uint64[] calldata newMaxMagnitudes,
-        address redistributionRecipient
+        uint64[] calldata newMaxMagnitudes
     ) external onlyAllocationManager nonReentrant returns (uint256[] memory totalDepositSharesToBurn) {
         totalDepositSharesToBurn = new uint256[](strategies.length);
         for (uint256 i = 0; i < strategies.length; i++) {
             totalDepositSharesToBurn[i] = _slashOperatorShares(
-                operator,
-                operatorSet,
-                slashId,
-                strategies[i],
-                prevMaxMagnitudes[i],
-                newMaxMagnitudes[i],
-                redistributionRecipient
+                operator, operatorSet, slashId, strategies[i], prevMaxMagnitudes[i], newMaxMagnitudes[i]
             );
         }
         return totalDepositSharesToBurn;
@@ -688,39 +681,40 @@ contract DelegationManager is
         uint256 slashId,
         IStrategy strategy,
         uint64 prevMaxMagnitude,
-        uint64 newMaxMagnitude,
-        address redistributionRecipient
-    ) internal returns (uint256) {
-        /// forgefmt: disable-next-item
-        uint256 operatorSharesSlashed = SlashingLib.calcSlashedAmount({
-            operatorShares: operatorShares[operator][strategy],
-            prevMaxMagnitude: prevMaxMagnitude,
-            newMaxMagnitude: newMaxMagnitude
-        });
+        uint64 newMaxMagnitude
+    ) internal returns (uint256 totalDepositSharesToBurn) {
+        // Avoid emitting events if nothing has changed for sanitization.
+        if (prevMaxMagnitude != newMaxMagnitude) {
+            uint256 operatorSharesSlashed = SlashingLib.calcSlashedAmount({
+                operatorShares: operatorShares[operator][strategy],
+                prevMaxMagnitude: prevMaxMagnitude,
+                newMaxMagnitude: newMaxMagnitude
+            });
 
-        uint256 scaledSharesSlashedFromQueue = _getSlashableSharesInQueue({
-            operator: operator,
-            strategy: strategy,
-            prevMaxMagnitude: prevMaxMagnitude,
-            newMaxMagnitude: newMaxMagnitude
-        });
+            uint256 scaledSharesSlashedFromQueue = _getSlashableSharesInQueue({
+                operator: operator,
+                strategy: strategy,
+                prevMaxMagnitude: prevMaxMagnitude,
+                newMaxMagnitude: newMaxMagnitude
+            });
 
-        // Calculate the total deposit shares to burn - slashed operator shares plus still-slashable
-        // shares sitting in the withdrawal queue.
-        uint256 totalDepositSharesToBurn = operatorSharesSlashed + scaledSharesSlashedFromQueue;
+            // Calculate the total deposit shares to burn - slashed operator shares plus still-slashable
+            // shares sitting in the withdrawal queue.
+            totalDepositSharesToBurn = operatorSharesSlashed + scaledSharesSlashedFromQueue;
 
-        // Remove shares from operator
-        _decreaseDelegation({
-            operator: operator,
-            staker: address(0), // we treat this as a decrease for the 0-staker (only used for events)
-            strategy: strategy,
-            sharesToDecrease: operatorSharesSlashed
-        });
+            // Remove shares from operator
+            _decreaseDelegation({
+                operator: operator,
+                staker: address(0), // we treat this as a decrease for the 0-staker (only used for events)
+                strategy: strategy,
+                sharesToDecrease: operatorSharesSlashed
+            });
 
-        // Emit event for operator shares being slashed
-        emit OperatorSharesSlashed(operator, strategy, totalDepositSharesToBurn);
+            // Emit event for operator shares being slashed
+            emit OperatorSharesSlashed(operator, strategy, totalDepositSharesToBurn);
 
-        _getShareManager(strategy).increaseBurnableShares(operatorSet, slashId, strategy, totalDepositSharesToBurn);
+            _getShareManager(strategy).increaseBurnableShares(operatorSet, slashId, strategy, totalDepositSharesToBurn);
+        }
 
         return totalDepositSharesToBurn;
     }
