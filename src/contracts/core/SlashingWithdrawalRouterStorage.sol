@@ -12,6 +12,9 @@ abstract contract SlashingWithdrawalRouterStorage is ISlashingWithdrawalRouter {
     /// Constants
     /// -----------------------------------------------------------------------
 
+    /// @dev The default burn address for slashed funds.
+    address internal constant DEFAULT_BURN_ADDRESS = 0x00000000000000000000000000000000000E16E4;
+
     /// @notice The pause status for the `burnOrRedistributeShares` function.
     /// @dev Allows all burn or redistribution outflows to be temporarily halted.
     uint8 public constant PAUSED_BURN_OR_REDISTRIBUTE_SHARES = 0;

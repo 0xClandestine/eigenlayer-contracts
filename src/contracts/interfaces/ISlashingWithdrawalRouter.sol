@@ -73,6 +73,8 @@ interface ISlashingWithdrawalRouter is ISlashingWithdrawalRouterErrors, ISlashin
     /// @notice Releases a redistribution.
     /// @param operatorSet The operator set whose redistribution is being released.
     /// @param slashId The slash ID of the redistribution that is being released.
+    /// @dev The caller must be the redistribution recipient, unless the redistribution recipient
+    /// is the default burn address in which case anyone can call.
     function burnOrRedistributeShares(OperatorSet calldata operatorSet, uint256 slashId) external;
 
     /// NOTE: Will likely want arrayfied or range-based aliases so we can quickly pause spammed malicious slashes.

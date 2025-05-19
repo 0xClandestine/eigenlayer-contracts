@@ -72,8 +72,11 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
         // Fetch the redistribution recipient for the operator set from the AllocationManager.
         address redistributionRecipient = allocationManager.getRedistributionRecipient(operatorSet);
 
-        // Assert that the caller is the redistribution recipient.
-        require(msg.sender == redistributionRecipient, OnlyRedistributionRecipient());
+        // If the redistribution recipient is not the default burn address...
+        if (redistributionRecipient != DEFAULT_BURN_ADDRESS) {
+            // Assert that the caller is the redistribution recipient.
+            require(msg.sender == redistributionRecipient, OnlyRedistributionRecipient());
+        }
 
         // Assert that the escrow is not paused.
         require(!_paused[operatorSet.key()][slashId], RedistributionCurrentlyPaused());
