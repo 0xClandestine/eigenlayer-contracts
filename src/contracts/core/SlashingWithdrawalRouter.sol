@@ -3,7 +3,6 @@ pragma solidity ^0.8.27;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin-upgrades/contracts/proxy/utils/Initializable.sol";
-import "@openzeppelin-upgrades/contracts/access/AccessControlUpgradeable.sol";
 import "../permissions/Pausable.sol";
 import "../mixins/SemVerMixin.sol";
 import "./SlashingWithdrawalRouterStorage.sol";
@@ -11,7 +10,6 @@ import "./SlashingWithdrawalRouterStorage.sol";
 contract SlashingWithdrawalRouter is
     Initializable,
     SlashingWithdrawalRouterStorage,
-    AccessControlUpgradeable,
     Pausable,
     SemVerMixin
 {
