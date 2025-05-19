@@ -722,25 +722,6 @@ contract DelegationManager is
 
         _getShareManager(strategy).increaseBurnableShares(operatorSet, slashId, strategy, totalDepositSharesToBurn);
 
-        IStrategy[] memory singleStrategy = new IStrategy[](1);
-        uint256[] memory singleDepositShares = new uint256[](1);
-        singleStrategy[0] = strategy;
-        singleDepositShares[0] = totalDepositSharesToBurn;
-
-        Withdrawal memory withdrawal = Withdrawal({
-            staker: redistributionRecipient,
-            delegatedTo: address(this),
-            withdrawer: address(0), // We use address(0) as the withdrawer to special case for allowing anybody to complete the withdrawal
-            nonce: slashId,
-            startBlock: uint32(block.number),
-            strategies: singleStrategy,
-            scaledShares: singleDepositShares
-        });
-
-        emit RedistributionQueued(calculateWithdrawalRoot(withdrawal), withdrawal);
-
-        _addWithdrawalToQueue(withdrawal);
-
         return totalDepositSharesToBurn;
     }
 
