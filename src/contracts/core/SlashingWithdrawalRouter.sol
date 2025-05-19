@@ -43,32 +43,24 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
     function startBurnOrRedistributeShares(
         OperatorSet calldata operatorSet,
         uint256 slashId,
-        IStrategy[] calldata strategies,
-        uint256[] calldata underlyingAmounts
+        IStrategy strategy,
+        uint256 underlyingAmount
     ) external virtual {
         // Assert that the caller is the `StrategyManager`.
         require(msg.sender == address(strategyManager), OnlyStrategyManager());
 
-        // Assert that the input arrays are of the same length.
-        require(strategies.length == underlyingAmounts.length, InputArrayLengthMismatch());
-
         // Create a storage pointer to the escrow array.
         RedistributionEscrow storage escrow = _escrow[operatorSet.key()][slashId];
 
-        // Start a redistribution for each strategy that was slashed.
-        for (uint256 i = 0; i < strategies.length; ++i) {
-            // Assert that the strategy is not the zero address for sanity.
-            require(address(strategies[i]) != address(0), InputAddressZero());
+        // Assert that the strategy is not the zero address for sanity.
+        require(address(strategy) != address(0), InputAddressZero());
 
-            // Emit the event.
-            emit RedistributionInitiated(
-                operatorSet, slashId, strategies[i], underlyingAmounts[i], uint32(block.number)
-            );
-        }
+        // Emit the event.
+        emit RedistributionInitiated(operatorSet, slashId, strategy, underlyingAmount, uint32(block.number));
 
         // Update storage.
-        escrow.underlyingAmounts = underlyingAmounts;
-        escrow.strategies = strategies;
+        escrow.underlyingAmounts.push(underlyingAmount);
+        escrow.strategies.push(strategy);
         escrow.startBlock = uint32(block.number);
     }
 

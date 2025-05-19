@@ -17,6 +17,7 @@ import "src/test/mocks/StrategyManagerMock.sol";
 import "src/test/mocks/DelegationManagerMock.sol";
 import "src/test/mocks/EigenPodManagerMock.sol";
 import "src/test/mocks/EmptyContract.sol";
+import "src/test/mocks/SlashingWithdrawalRouterMock.sol";
 
 import "src/test/utils/ArrayLib.sol";
 import "src/test/utils/Random.sol";
@@ -44,7 +45,7 @@ abstract contract EigenLayerUnitTestSetup is Test {
     DelegationManagerMock delegationManagerMock;
     EigenPodManagerMock eigenPodManagerMock;
     EmptyContract emptyContract;
-
+    SlashingWithdrawalRouterMock slashingWithdrawalRouterMock;
     mapping(address => bool) public isExcludedFuzzAddress;
 
     modifier filterFuzzedAddressInputs(address addr) {
@@ -81,6 +82,7 @@ abstract contract EigenLayerUnitTestSetup is Test {
             StrategyManagerMock(payable(address(new StrategyManagerMock(IDelegationManager(address(delegationManagerMock))))));
         delegationManagerMock = DelegationManagerMock(payable(address(new DelegationManagerMock())));
         eigenPodManagerMock = EigenPodManagerMock(payable(address(new EigenPodManagerMock(pauserRegistry))));
+        slashingWithdrawalRouterMock = SlashingWithdrawalRouterMock(payable(address(new SlashingWithdrawalRouterMock())));
         emptyContract = new EmptyContract();
 
         isExcludedFuzzAddress[address(0)] = true;
@@ -92,5 +94,6 @@ abstract contract EigenLayerUnitTestSetup is Test {
         isExcludedFuzzAddress[address(strategyManagerMock)] = true;
         isExcludedFuzzAddress[address(delegationManagerMock)] = true;
         isExcludedFuzzAddress[address(eigenPodManagerMock)] = true;
+        isExcludedFuzzAddress[address(slashingWithdrawalRouterMock)] = true;
     }
 }

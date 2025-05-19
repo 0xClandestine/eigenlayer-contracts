@@ -64,13 +64,13 @@ interface ISlashingWithdrawalRouter is ISlashingWithdrawalRouterErrors, ISlashin
     /// @notice Locks up a redistribution.
     /// @param operatorSet The operator set whose redistribution is being locked up.
     /// @param slashId The slash ID of the redistribution that is being locked up.
-    /// @param strategies The strategies that whose underlying tokens are being redistributed.
-    /// @param underlyingAmounts The amounts of underlying tokens that are being redistributed.
+    /// @param strategy The strategy that whose underlying tokens are being redistributed.
+    /// @param underlyingAmount The amount of underlying tokens that are being redistributed.
     function startBurnOrRedistributeShares(
         OperatorSet calldata operatorSet,
         uint256 slashId,
-        IStrategy[] calldata strategies,
-        uint256[] calldata underlyingAmounts
+        IStrategy strategy,
+        uint256 underlyingAmount
     ) external;
 
     /// @notice Releases a redistribution.
