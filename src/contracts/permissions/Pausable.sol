@@ -3,8 +3,6 @@ pragma solidity ^0.8.27;
 
 import "../interfaces/IPausable.sol";
 
-// TODO: Optimize for codesize.
-
 /**
  * @title Adds pausability to a contract, with pausing & unpausing controlled by the `pauser` and `unpauser` of a PauserRegistry contract.
  * @author Layr Labs, Inc.

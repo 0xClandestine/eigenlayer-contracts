@@ -680,6 +680,8 @@ contract DelegationManager is
         emit OperatorSharesDecreased(operator, staker, strategy, sharesToDecrease);
     }
 
+    /// @dev Slashes operator shares and queues a redistribution for the slashable shares in the queue.
+    /// See `slashOperatorShares` for more details.
     function _slashOperatorShares(
         address operator,
         OperatorSet memory operatorSet,
