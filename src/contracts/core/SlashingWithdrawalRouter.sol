@@ -68,48 +68,43 @@ contract SlashingWithdrawalRouter is
         IStrategy[] calldata strategies,
         uint256[] calldata underlyingAmounts
     ) external onlyStrategyManager {
-        // Create a storage pointer to the escrow array.
-        RedistributionEscrow[] storage escrow = _escrow[operatorSet.key()][slashId];
-
         // Assert that the input arrays are of the same length.
         require(strategies.length == underlyingAmounts.length, InputArrayLengthMismatch());
 
+        // Create a storage pointer to the escrow array.
+        RedistributionEscrow storage escrow = _escrow[operatorSet.key()][slashId];
+
         // Start a redistribution for each strategy that was slashed.
-        for (uint256 i = 0; i < strategies.length; i++) {
+        for (uint256 i = 0; i < strategies.length; ++i) {
             // Assert that the strategy is not the zero address for sanity.
             require(address(strategies[i]) != address(0), InputAddressZero());
-
-            // Store the escrowed redistribution.
-            escrow.push(
-                RedistributionEscrow({
-                    underlyingAmount: underlyingAmounts[i],
-                    strategy: strategies[i],
-                    startBlock: uint32(block.number)
-                })
-            );
 
             // Emit the event.
             emit RedistributionInitiated(
                 operatorSet, slashId, strategies[i], underlyingAmounts[i], uint32(block.number)
             );
         }
+
+        escrow.underlyingAmounts = underlyingAmounts;
+        escrow.strategies = strategies;
+        escrow.startBlock = uint32(block.number);
     }
 
     // TODO: Only releaser can call this.
 
     /// @inheritdoc ISlashingWithdrawalRouter
     function burnOrRedistributeShares(OperatorSet calldata operatorSet, uint256 slashId) external {
+        // Assert that the escrow is not paused.
+        require(!_paused[operatorSet.key()][slashId], RedistributionCurrentlyPaused());
+
         // Fetch the redistribution recipient for the operator set from the AllocationManager.
         address redistributionRecipient = allocationManager.getRedistributionRecipient(operatorSet);
 
         // Create a storage pointer to the escrow array.
-        RedistributionEscrow[] storage escrow = _escrow[operatorSet.key()][slashId];
+        RedistributionEscrow storage escrow = _escrow[operatorSet.key()][slashId];
 
         // Fetch the length of the escrow array.
-        uint256 n = escrow.length;
-
-        // Assert that the escrow is not paused.
-        require(!_paused[operatorSet.key()][slashId], RedistributionCurrentlyPaused());
+        uint256 n = escrow.underlyingAmounts.length;
 
         // Iterate over the escrow array in reverse order and pop the processed entries from storage.
         for (uint256 i = n; i > 0; i--) {
@@ -117,23 +112,28 @@ contract SlashingWithdrawalRouter is
             uint32 delay; // TODO
 
             // Skip immature redistributions rather than reverting to avoid denial of service.
-            if (block.number > escrow[index].startBlock + delay) {
+            if (block.number > escrow.startBlock + delay) {
                 // Emit the event.
                 emit RedistributionReleased(
                     operatorSet,
                     slashId,
-                    escrow[index].strategy,
-                    escrow[index].underlyingAmount,
+                    escrow.strategies[index],
+                    escrow.underlyingAmounts[index],
                     redistributionRecipient
                 );
 
                 // Transfer the escrowed tokens to the caller.
-                escrow[index].strategy.underlyingToken().safeTransfer(
-                    redistributionRecipient, escrow[index].underlyingAmount
+                escrow.strategies[index].underlyingToken().safeTransfer(
+                    redistributionRecipient, escrow.underlyingAmounts[index]
                 );
 
-                // Remove the processed entry.
-                escrow.pop();
+                // First swap the current entry with the last element.
+                escrow.underlyingAmounts[index] = escrow.underlyingAmounts[escrow.underlyingAmounts.length - 1];
+                escrow.strategies[index] = escrow.strategies[escrow.strategies.length - 1];
+
+                // Then pop the last element off the array, since it's now a duplicate.
+                escrow.underlyingAmounts.pop();
+                escrow.strategies.pop();
             }
         }
     }

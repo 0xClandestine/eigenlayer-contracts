@@ -23,7 +23,7 @@ abstract contract SlashingWithdrawalRouterStorage is ISlashingWithdrawalRouter {
     /// -----------------------------------------------------------------------
 
     /// @notice Returns the escrow for a given operator set and slash ID.
-    mapping(bytes32 operatorSetKey => mapping(uint256 slashId => RedistributionEscrow[] escrow)) internal _escrow;
+    mapping(bytes32 operatorSetKey => mapping(uint256 slashId => RedistributionEscrow escrow)) internal _escrow;
 
     /// @notice Returns the paused status for a given operator set and slash ID.
     mapping(bytes32 operatorSetKey => mapping(uint256 slashId => bool paused)) internal _paused;

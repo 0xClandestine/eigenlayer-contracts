@@ -24,8 +24,8 @@ interface ISlashingWithdrawalRouterTypes {
     /// @param strategy The strategy that is being redistributed.
     /// @param startBlock The block number at which the escrow will be released, assuming the redistribution is not paused.
     struct RedistributionEscrow {
-        uint256 underlyingAmount;
-        IStrategy strategy;
+        uint256[] underlyingAmounts;
+        IStrategy[] strategies;
         uint32 startBlock;
     }
 }
