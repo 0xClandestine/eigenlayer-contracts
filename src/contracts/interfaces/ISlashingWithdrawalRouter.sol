@@ -11,6 +11,9 @@ interface ISlashingWithdrawalRouterErrors {
     /// @notice Thrown when a caller is not the strategy manager.
     error OnlyStrategyManager();
 
+    /// @notice Thrown when a caller is not the redistribution recipient.
+    error OnlyRedistributionRecipient();
+
     /// @notice Thrown when a redistribution is already paused.
     error RedistributionCurrentlyPaused();
 

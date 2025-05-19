@@ -7,12 +7,7 @@ import "../permissions/Pausable.sol";
 import "../mixins/SemVerMixin.sol";
 import "./SlashingWithdrawalRouterStorage.sol";
 
-contract SlashingWithdrawalRouter is
-    Initializable,
-    SlashingWithdrawalRouterStorage,
-    Pausable,
-    SemVerMixin
-{
+contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStorage, Pausable, SemVerMixin {
     using SafeERC20 for IERC20;
     using OperatorSetLib for OperatorSet;
 
@@ -88,8 +83,6 @@ contract SlashingWithdrawalRouter is
         escrow.startBlock = uint32(block.number);
     }
 
-    // TODO: Only releaser can call this.
-
     /// @inheritdoc ISlashingWithdrawalRouter
     function burnOrRedistributeShares(OperatorSet calldata operatorSet, uint256 slashId) external {
         // Assert that the escrow is not paused.
@@ -97,6 +90,9 @@ contract SlashingWithdrawalRouter is
 
         // Fetch the redistribution recipient for the operator set from the AllocationManager.
         address redistributionRecipient = allocationManager.getRedistributionRecipient(operatorSet);
+
+        // Assert that the caller is the redistribution recipient.
+        require(msg.sender == redistributionRecipient, OnlyRedistributionRecipient());
 
         // Create a storage pointer to the escrow array.
         RedistributionEscrow storage escrow = _escrow[operatorSet.key()][slashId];
@@ -107,7 +103,7 @@ contract SlashingWithdrawalRouter is
         // Iterate over the escrow array in reverse order and pop the processed entries from storage.
         for (uint256 i = n; i > 0; i--) {
             uint256 index = i - 1;
-            uint32 delay; // TODO
+            uint32 delay; // TODO: Implement wrapped delay getter, see DM strategy delay logic.
 
             // Skip immature redistributions rather than reverting to avoid denial of service.
             if (block.number > escrow.startBlock + delay) {
