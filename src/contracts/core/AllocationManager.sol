@@ -346,9 +346,6 @@ contract AllocationManager is
                 StrategyNotInOperatorSet()
             );
 
-            _burnOrRedistributionBlock[operatorSet.key()][params.strategies[i]][slashId] =
-                uint32(block.number) + BURN_OR_REDISTRIBUTION_DELAY;
-
             // 1. Get the operator's allocation info for the strategy and operator set
             (StrategyInfo memory info, Allocation memory allocation) =
                 _getUpdatedAllocation(params.operator, operatorSet.key(), params.strategies[i]);
@@ -1013,15 +1010,6 @@ contract AllocationManager is
         OperatorSet memory operatorSet
     ) external view returns (uint256) {
         return _slashCount[operatorSet.key()];
-    }
-
-    /// @inheritdoc IAllocationManager
-    function getBurnOrRedistributionBlock(
-        OperatorSet memory operatorSet,
-        IStrategy strategy,
-        uint256 slashId
-    ) external view returns (uint32) {
-        return _burnOrRedistributionBlock[operatorSet.key()][strategy][slashId];
     }
 
     /// @inheritdoc IAllocationManager

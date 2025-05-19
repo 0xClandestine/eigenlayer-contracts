@@ -65,31 +65,33 @@ contract SlashingWithdrawalRouter is
     function startBurnOrRedistributeShares(
         OperatorSet calldata operatorSet,
         uint256 slashId,
-        IERC20[] calldata tokens,
+        IStrategy[] calldata strategies,
         uint256[] calldata underlyingAmounts
     ) external onlyStrategyManager {
         // Create a storage pointer to the escrow array.
         RedistributionEscrow[] storage escrow = _escrow[operatorSet.key()][slashId];
 
         // Assert that the input arrays are of the same length.
-        require(tokens.length == underlyingAmounts.length, InputArrayLengthMismatch());
+        require(strategies.length == underlyingAmounts.length, InputArrayLengthMismatch());
 
         // Start a redistribution for each strategy that was slashed.
-        for (uint256 i = 0; i < tokens.length; i++) {
-            // Assert that the token is not the zero address for sanity.
-            require(tokens[i] != IERC20(address(0)), InputAddressZero());
+        for (uint256 i = 0; i < strategies.length; i++) {
+            // Assert that the strategy is not the zero address for sanity.
+            require(address(strategies[i]) != address(0), InputAddressZero());
 
             // Store the escrowed redistribution.
             escrow.push(
                 RedistributionEscrow({
                     underlyingAmount: underlyingAmounts[i],
-                    token: tokens[i],
+                    strategy: strategies[i],
                     startBlock: uint32(block.number)
                 })
             );
 
             // Emit the event.
-            emit RedistributionInitiated(operatorSet, slashId, tokens[i], underlyingAmounts[i], uint32(block.number));
+            emit RedistributionInitiated(
+                operatorSet, slashId, strategies[i], underlyingAmounts[i], uint32(block.number)
+            );
         }
     }
 
@@ -112,23 +114,33 @@ contract SlashingWithdrawalRouter is
         // Iterate over the escrow array in reverse order and pop the processed entries from storage.
         for (uint256 i = n; i > 0; i--) {
             uint256 index = i - 1;
+            uint32 delay; // TODO
 
-            // TODO: Add configurable delay on a strategy-by-strategy basis for each operator set within ALM and update 3.5 day constant.
-
-            if (block.number > escrow[index].startBlock + (3.5 days / 12 seconds)) {
+            // Skip immature redistributions rather than reverting to avoid denial of service.
+            if (block.number > escrow[index].startBlock + delay) {
                 // Emit the event.
                 emit RedistributionReleased(
-                    operatorSet, slashId, escrow[index].token, escrow[index].underlyingAmount, redistributionRecipient
+                    operatorSet,
+                    slashId,
+                    escrow[index].strategy,
+                    escrow[index].underlyingAmount,
+                    redistributionRecipient
                 );
 
                 // Transfer the escrowed tokens to the caller.
-                escrow[index].token.safeTransfer(redistributionRecipient, escrow[index].underlyingAmount);
+                escrow[index].strategy.underlyingToken().safeTransfer(
+                    redistributionRecipient, escrow[index].underlyingAmount
+                );
 
                 // Remove the processed entry.
                 escrow.pop();
             }
         }
     }
+
+    /// -----------------------------------------------------------------------
+    /// Emergency Actions
+    /// -----------------------------------------------------------------------
 
     /// @inheritdoc ISlashingWithdrawalRouter
     function pauseRedistribution(OperatorSet calldata operatorSet, uint256 slashId) external onlyPauser {

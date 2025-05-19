@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity >=0.5.0;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "../interfaces/IStrategy.sol";
 import "../libraries/OperatorSetLib.sol";
 
 interface ISlashingWithdrawalRouterErrors {
@@ -20,12 +20,12 @@ interface ISlashingWithdrawalRouterErrors {
 
 interface ISlashingWithdrawalRouterTypes {
     /// @notice A struct that represents an escrow for a redistribution.
-    /// @param underlyingAmount The amount of tokens that is being redistributed.
-    /// @param token The token that is being redistributed.
+    /// @param underlyingAmount The amount of underlying tokens that is being redistributed.
+    /// @param strategy The strategy that is being redistributed.
     /// @param startBlock The block number at which the escrow will be released, assuming the redistribution is not paused.
     struct RedistributionEscrow {
         uint256 underlyingAmount;
-        IERC20 token;
+        IStrategy strategy;
         uint32 startBlock;
     }
 }
@@ -33,12 +33,12 @@ interface ISlashingWithdrawalRouterTypes {
 interface ISlashingWithdrawalRouterEvents is ISlashingWithdrawalRouterTypes {
     /// @notice Emitted when a redistribution is initiated.
     event RedistributionInitiated(
-        OperatorSet operatorSet, uint256 slashId, IERC20 token, uint256 underlyingAmount, uint32 startBlock
+        OperatorSet operatorSet, uint256 slashId, IStrategy strategy, uint256 underlyingAmount, uint32 startBlock
     );
 
     /// @notice Emitted when a redistribution is released.
     event RedistributionReleased(
-        OperatorSet operatorSet, uint256 slashId, IERC20 token, uint256 underlyingAmount, address recipient
+        OperatorSet operatorSet, uint256 slashId, IStrategy strategy, uint256 underlyingAmount, address recipient
     );
 
     /// @notice Emitted when a redistribution is paused.
@@ -58,12 +58,12 @@ interface ISlashingWithdrawalRouter is ISlashingWithdrawalRouterErrors, ISlashin
     /// @notice Locks up a redistribution.
     /// @param operatorSet The operator set whose redistribution is being locked up.
     /// @param slashId The slash ID of the redistribution that is being locked up.
-    /// @param tokens The tokens that are being redistributed.
-    /// @param underlyingAmounts The amounts of tokens that are being redistributed.
+    /// @param strategies The strategies that whose underlying tokens are being redistributed.
+    /// @param underlyingAmounts The amounts of underlying tokens that are being redistributed.
     function startBurnOrRedistributeShares(
         OperatorSet calldata operatorSet,
         uint256 slashId,
-        IERC20[] calldata tokens,
+        IStrategy[] calldata strategies,
         uint256[] calldata underlyingAmounts
     ) external;
 
