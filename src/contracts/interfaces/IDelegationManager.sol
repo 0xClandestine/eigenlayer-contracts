@@ -362,9 +362,10 @@ interface IDelegationManager is ISignatureUtilsMixin, IDelegationManagerErrors, 
      * @param operator The operator to decrease shares for.
      * @param operatorSet The operator set to decrease shares for.
      * @param slashId The slash id to decrease shares for.
-     * @param strategy The strategy to decrease shares for.
-     * @param prevMaxMagnitude The previous maxMagnitude of the operator.
-     * @param newMaxMagnitude The new maxMagnitude of the operator.
+     * @param strategies The strategies to decrease shares for.
+     * @param prevMaxMagnitudes The previous maxMagnitudes of the operator.
+     * @param newMaxMagnitudes The new maxMagnitudes of the operator.
+     * @param redistributionRecipient The recipient of the redistribution.
      * @dev Callable only by the AllocationManager.
      * @dev Note: Assumes `prevMaxMagnitude <= newMaxMagnitude`. This invariant is maintained in
      * the AllocationManager.
@@ -374,10 +375,11 @@ interface IDelegationManager is ISignatureUtilsMixin, IDelegationManagerErrors, 
         address operator,
         OperatorSet calldata operatorSet,
         uint256 slashId,
-        IStrategy strategy,
-        uint64 prevMaxMagnitude,
-        uint64 newMaxMagnitude
-    ) external returns (uint256);
+        IStrategy[] calldata strategies,
+        uint64[] calldata prevMaxMagnitudes,
+        uint64[] calldata newMaxMagnitudes,
+        address redistributionRecipient
+    ) external returns (uint256[] memory totalDepositSharesToBurn);
 
     /**
      *

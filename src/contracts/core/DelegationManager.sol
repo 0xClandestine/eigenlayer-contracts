@@ -280,62 +280,25 @@ contract DelegationManager is
     /// @inheritdoc IDelegationManager
     function slashOperatorShares(
         address operator,
-        OperatorSet memory operatorSet,
+        OperatorSet calldata operatorSet,
         uint256 slashId,
-        IStrategy strategy,
-        uint64 prevMaxMagnitude,
-        uint64 newMaxMagnitude
-    ) external onlyAllocationManager nonReentrant returns (uint256) {
-        /// forgefmt: disable-next-item
-        uint256 operatorSharesSlashed = SlashingLib.calcSlashedAmount({
-            operatorShares: operatorShares[operator][strategy],
-            prevMaxMagnitude: prevMaxMagnitude,
-            newMaxMagnitude: newMaxMagnitude
-        });
-
-        uint256 scaledSharesSlashedFromQueue = _getSlashableSharesInQueue({
-            operator: operator,
-            strategy: strategy,
-            prevMaxMagnitude: prevMaxMagnitude,
-            newMaxMagnitude: newMaxMagnitude
-        });
-
-        // Calculate the total deposit shares to burn - slashed operator shares plus still-slashable
-        // shares sitting in the withdrawal queue.
-        uint256 totalDepositSharesToBurn = operatorSharesSlashed + scaledSharesSlashedFromQueue;
-
-        // Remove shares from operator
-        _decreaseDelegation({
-            operator: operator,
-            staker: address(0), // we treat this as a decrease for the 0-staker (only used for events)
-            strategy: strategy,
-            sharesToDecrease: operatorSharesSlashed
-        });
-
-        // Emit event for operator shares being slashed
-        emit OperatorSharesSlashed(operator, strategy, totalDepositSharesToBurn);
-
-        _getShareManager(strategy).increaseBurnableShares(operatorSet, slashId, strategy, totalDepositSharesToBurn);
-
-        IStrategy[] memory singleStrategy = new IStrategy[](1);
-        uint256[] memory singleDepositShares = new uint256[](1);
-        singleStrategy[0] = strategy;
-        singleDepositShares[0] = totalDepositSharesToBurn;
-
-        Withdrawal memory withdrawal = Withdrawal({
-            staker: address(0), // TODO: pass in redistribution recipient in call
-            delegatedTo: address(this),
-            withdrawer: address(0), // We use address(0) as the withdrawer to special case for allowing anybody to complete the withdrawal
-            nonce: slashId,
-            startBlock: uint32(block.number),
-            strategies: singleStrategy,
-            scaledShares: singleDepositShares
-        });
-
-        emit RedistributionQueued(calculateWithdrawalRoot(withdrawal), withdrawal);
-
-        _addWithdrawalToQueue(withdrawal);
-
+        IStrategy[] calldata strategies,
+        uint64[] calldata prevMaxMagnitudes,
+        uint64[] calldata newMaxMagnitudes,
+        address redistributionRecipient
+    ) external onlyAllocationManager nonReentrant returns (uint256[] memory totalDepositSharesToBurn) {
+        totalDepositSharesToBurn = new uint256[](strategies.length);
+        for (uint256 i = 0; i < strategies.length; i++) {
+            totalDepositSharesToBurn[i] = _slashOperatorShares(
+                operator,
+                operatorSet,
+                slashId,
+                strategies[i],
+                prevMaxMagnitudes[i],
+                newMaxMagnitudes[i],
+                redistributionRecipient
+            );
+        }
         return totalDepositSharesToBurn;
     }
 
@@ -715,6 +678,68 @@ contract DelegationManager is
         // Decrement operator shares
         operatorShares[operator][strategy] -= sharesToDecrease;
         emit OperatorSharesDecreased(operator, staker, strategy, sharesToDecrease);
+    }
+
+    function _slashOperatorShares(
+        address operator,
+        OperatorSet memory operatorSet,
+        uint256 slashId,
+        IStrategy strategy,
+        uint64 prevMaxMagnitude,
+        uint64 newMaxMagnitude,
+        address redistributionRecipient
+    ) internal returns (uint256) {
+        /// forgefmt: disable-next-item
+        uint256 operatorSharesSlashed = SlashingLib.calcSlashedAmount({
+            operatorShares: operatorShares[operator][strategy],
+            prevMaxMagnitude: prevMaxMagnitude,
+            newMaxMagnitude: newMaxMagnitude
+        });
+
+        uint256 scaledSharesSlashedFromQueue = _getSlashableSharesInQueue({
+            operator: operator,
+            strategy: strategy,
+            prevMaxMagnitude: prevMaxMagnitude,
+            newMaxMagnitude: newMaxMagnitude
+        });
+
+        // Calculate the total deposit shares to burn - slashed operator shares plus still-slashable
+        // shares sitting in the withdrawal queue.
+        uint256 totalDepositSharesToBurn = operatorSharesSlashed + scaledSharesSlashedFromQueue;
+
+        // Remove shares from operator
+        _decreaseDelegation({
+            operator: operator,
+            staker: address(0), // we treat this as a decrease for the 0-staker (only used for events)
+            strategy: strategy,
+            sharesToDecrease: operatorSharesSlashed
+        });
+
+        // Emit event for operator shares being slashed
+        emit OperatorSharesSlashed(operator, strategy, totalDepositSharesToBurn);
+
+        _getShareManager(strategy).increaseBurnableShares(operatorSet, slashId, strategy, totalDepositSharesToBurn);
+
+        IStrategy[] memory singleStrategy = new IStrategy[](1);
+        uint256[] memory singleDepositShares = new uint256[](1);
+        singleStrategy[0] = strategy;
+        singleDepositShares[0] = totalDepositSharesToBurn;
+
+        Withdrawal memory withdrawal = Withdrawal({
+            staker: redistributionRecipient,
+            delegatedTo: address(this),
+            withdrawer: address(0), // We use address(0) as the withdrawer to special case for allowing anybody to complete the withdrawal
+            nonce: slashId,
+            startBlock: uint32(block.number),
+            strategies: singleStrategy,
+            scaledShares: singleDepositShares
+        });
+
+        emit RedistributionQueued(calculateWithdrawalRoot(withdrawal), withdrawal);
+
+        _addWithdrawalToQueue(withdrawal);
+
+        return totalDepositSharesToBurn;
     }
 
     /// @dev If `operator` has configured a `delegationApprover`, check that `signature` and `salt`

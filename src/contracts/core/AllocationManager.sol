@@ -328,8 +328,8 @@ contract AllocationManager is
         // Increment the slash count for the operator set.
         slashId = ++_slashCount[operatorSet.key()];
 
-        // Initialize the shares array.
-        shares = new uint256[](params.strategies.length);
+        uint64[] memory prevMaxMagnitudes = new uint64[](params.strategies.length);
+        uint64[] memory newMaxMagnitudes = new uint64[](params.strategies.length);
 
         // For each strategy in the operator set, slash any existing allocation
         for (uint256 i = 0; i < params.strategies.length; i++) {
@@ -393,16 +393,20 @@ contract AllocationManager is
 
             _updateMaxMagnitude(params.operator, params.strategies[i], info.maxMagnitude);
 
-            // 6. Slash operators shares in the DelegationManager
-            shares[i] = delegation.slashOperatorShares({
-                operator: params.operator,
-                operatorSet: operatorSet,
-                slashId: slashId,
-                strategy: params.strategies[i],
-                prevMaxMagnitude: prevMaxMagnitude,
-                newMaxMagnitude: info.maxMagnitude
-            });
+            prevMaxMagnitudes[i] = prevMaxMagnitude;
+            newMaxMagnitudes[i] = info.maxMagnitude;
         }
+
+        // 6. Slash operators shares in the DelegationManager
+        shares = delegation.slashOperatorShares({
+            operator: params.operator,
+            operatorSet: operatorSet,
+            slashId: slashId,
+            strategies: params.strategies,
+            prevMaxMagnitudes: prevMaxMagnitudes,
+            newMaxMagnitudes: newMaxMagnitudes,
+            redistributionRecipient: getRedistributionRecipient(operatorSet)
+        });
 
         emit OperatorSlashed(params.operator, operatorSet, params.strategies, wadSlashed, params.description);
     }
@@ -992,7 +996,7 @@ contract AllocationManager is
     /// @inheritdoc IAllocationManager
     function getRedistributionRecipient(
         OperatorSet memory operatorSet
-    ) external view returns (address) {
+    ) public view returns (address) {
         // Load the redistribution recipient and return it if set, otherwise return the default burn address.
         address redistributionRecipient = _redistributionRecipients[operatorSet.key()];
         return redistributionRecipient == address(0) ? DEFAULT_BURN_ADDRESS : redistributionRecipient;

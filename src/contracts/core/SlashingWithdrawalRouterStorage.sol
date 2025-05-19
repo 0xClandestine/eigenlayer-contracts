@@ -9,6 +9,14 @@ import "../interfaces/IStrategy.sol";
 
 abstract contract SlashingWithdrawalRouterStorage is ISlashingWithdrawalRouter {
     /// -----------------------------------------------------------------------
+    /// Constants
+    /// -----------------------------------------------------------------------
+
+    /// @notice The pause status for the `burnOrRedistributeShares` function.
+    /// @dev Allows all burn or redistribution outflows to be temporarily halted.
+    uint8 public constant PAUSED_BURN_OR_REDISTRIBUTE_SHARES = 0;
+
+    /// -----------------------------------------------------------------------
     /// Immutable Storage
     /// -----------------------------------------------------------------------
 

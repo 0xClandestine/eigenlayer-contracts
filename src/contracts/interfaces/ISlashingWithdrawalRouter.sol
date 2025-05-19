@@ -19,6 +19,9 @@ interface ISlashingWithdrawalRouterErrors {
 
     /// @notice Thrown when a redistribution is not paused.
     error RedistributionNotPaused();
+
+    /// @notice Thrown when a redistribution is not mature.
+    error RedistributionNotMature();
 }
 
 interface ISlashingWithdrawalRouterTypes {
@@ -86,4 +89,17 @@ interface ISlashingWithdrawalRouter is ISlashingWithdrawalRouterErrors, ISlashin
     /// @param operatorSet The operator set whose redistribution is being unpaused.
     /// @param slashId The slash ID of the redistribution that is being unpaused.
     function unpauseRedistribution(OperatorSet calldata operatorSet, uint256 slashId) external;
+
+    /// @notice Returns the escrow for a redistribution.
+    /// @param operatorSet The operator set whose redistribution is being queried.
+    /// @param slashId The slash ID of the redistribution that is being queried.
+    function getRedistributionEscrow(
+        OperatorSet calldata operatorSet,
+        uint256 slashId
+    ) external view returns (RedistributionEscrow memory);
+
+    /// @notice Returns the paused status of a redistribution.
+    /// @param operatorSet The operator set whose redistribution is being queried.
+    /// @param slashId The slash ID of the redistribution that is being queried.
+    function isRedistributionPaused(OperatorSet calldata operatorSet, uint256 slashId) external view returns (bool);
 }

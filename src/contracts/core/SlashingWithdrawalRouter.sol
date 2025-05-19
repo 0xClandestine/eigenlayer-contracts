@@ -12,21 +12,6 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
     using OperatorSetLib for OperatorSet;
 
     /// -----------------------------------------------------------------------
-    /// Modifiers
-    /// -----------------------------------------------------------------------
-
-    /// @dev Checks whether a caller is the `StrategyManager`.
-    modifier onlyStrategyManager() {
-        _checkOnlyStrategyManager();
-        _;
-    }
-
-    /// @dev Checks whether a caller is the `StrategyManager`, throws `UnauthorizedCaller` if not.
-    function _checkOnlyStrategyManager() internal view virtual {
-        require(msg.sender == address(strategyManager), OnlyStrategyManager());
-    }
-
-    /// -----------------------------------------------------------------------
     /// Initialization
     /// -----------------------------------------------------------------------
 
@@ -60,7 +45,10 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
         uint256 slashId,
         IStrategy[] calldata strategies,
         uint256[] calldata underlyingAmounts
-    ) external virtual onlyStrategyManager {
+    ) external virtual {
+        // Assert that the caller is the `StrategyManager`.
+        require(msg.sender == address(strategyManager), OnlyStrategyManager());
+
         // Assert that the input arrays are of the same length.
         require(strategies.length == underlyingAmounts.length, InputArrayLengthMismatch());
 
@@ -85,51 +73,52 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
     }
 
     /// @inheritdoc ISlashingWithdrawalRouter
-    function burnOrRedistributeShares(OperatorSet calldata operatorSet, uint256 slashId) external virtual {
-        // Assert that the escrow is not paused.
-        require(!_paused[operatorSet.key()][slashId], RedistributionCurrentlyPaused());
-
+    function burnOrRedistributeShares(
+        OperatorSet calldata operatorSet,
+        uint256 slashId
+    ) external virtual onlyWhenNotPaused(PAUSED_BURN_OR_REDISTRIBUTE_SHARES) {
         // Fetch the redistribution recipient for the operator set from the AllocationManager.
         address redistributionRecipient = allocationManager.getRedistributionRecipient(operatorSet);
 
         // Assert that the caller is the redistribution recipient.
         require(msg.sender == redistributionRecipient, OnlyRedistributionRecipient());
 
+        // Assert that the escrow is not paused.
+        require(!_paused[operatorSet.key()][slashId], RedistributionCurrentlyPaused());
+
         // Create a storage pointer to the escrow array.
         RedistributionEscrow storage escrow = _escrow[operatorSet.key()][slashId];
 
+        // TODO: Implement wrapped delay getter, see DM strategy delay logic.
+        uint32 delay;
+
+        // Assert that the escrow is mature.
+        require(escrow.startBlock + delay > block.number, RedistributionNotMature());
+
         // Fetch the length of the escrow array.
-        uint256 n = escrow.underlyingAmounts.length;
+        uint256 totalStrategies = escrow.strategies.length;
 
         // Iterate over the escrow array in reverse order and pop the processed entries from storage.
-        for (uint256 i = n; i > 0; i--) {
+        for (uint256 i = totalStrategies; i > 0; i--) {
             uint256 index = i - 1;
-            uint32 delay; // TODO: Implement wrapped delay getter, see DM strategy delay logic.
 
-            // Skip immature redistributions rather than reverting to avoid denial of service.
-            if (block.number > escrow.startBlock + delay) {
-                // Emit the event.
-                emit RedistributionReleased(
-                    operatorSet,
-                    slashId,
-                    escrow.strategies[index],
-                    escrow.underlyingAmounts[index],
-                    redistributionRecipient
-                );
+            // Emit the event.
+            emit RedistributionReleased(
+                operatorSet, slashId, escrow.strategies[index], escrow.underlyingAmounts[index], redistributionRecipient
+            );
 
-                // Transfer the escrowed tokens to the caller.
-                escrow.strategies[index].underlyingToken().safeTransfer(
-                    redistributionRecipient, escrow.underlyingAmounts[index]
-                );
+            // Transfer the escrowed tokens to the caller.
+            escrow.strategies[index].underlyingToken().safeTransfer(
+                redistributionRecipient, escrow.underlyingAmounts[index]
+            );
 
-                // First swap the current entry with the last element.
-                escrow.underlyingAmounts[index] = escrow.underlyingAmounts[escrow.underlyingAmounts.length - 1];
-                escrow.strategies[index] = escrow.strategies[escrow.strategies.length - 1];
+            // First swap the current entry with the last element.
+            escrow.underlyingAmounts[index] = escrow.underlyingAmounts[escrow.underlyingAmounts.length - 1];
+            escrow.strategies[index] = escrow.strategies[escrow.strategies.length - 1];
 
-                // Then pop the last element off the array, since it's now a duplicate.
-                escrow.underlyingAmounts.pop();
-                escrow.strategies.pop();
-            }
+            // Then pop the last element off the array, since it's now a duplicate.
+            escrow.underlyingAmounts.pop();
+            escrow.strategies.pop();
         }
     }
 
@@ -163,5 +152,22 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
 
         // Emit the event.
         emit RedistributionUnpaused(operatorSet, slashId);
+    }
+
+    /// -----------------------------------------------------------------------
+    /// Getters
+    /// -----------------------------------------------------------------------
+
+    /// @inheritdoc ISlashingWithdrawalRouter
+    function getRedistributionEscrow(
+        OperatorSet calldata operatorSet,
+        uint256 slashId
+    ) external view returns (RedistributionEscrow memory) {
+        return _escrow[operatorSet.key()][slashId];
+    }
+
+    /// @inheritdoc ISlashingWithdrawalRouter
+    function isRedistributionPaused(OperatorSet calldata operatorSet, uint256 slashId) external view returns (bool) {
+        return _paused[operatorSet.key()][slashId];
     }
 }
