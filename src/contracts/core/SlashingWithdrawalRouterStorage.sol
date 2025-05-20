@@ -34,6 +34,9 @@ abstract contract SlashingWithdrawalRouterStorage is ISlashingWithdrawalRouter {
     /// Mutable Storage
     /// -----------------------------------------------------------------------
 
+    /// @dev Returns a list of operator sets that have pending slash IDs.
+    EnumerableSetUpgradeable.Bytes32Set internal _pendingOperatorSets;
+
     /// @dev Returns a list of pending slash IDs for a given operator set.
     mapping(bytes32 operatorSetKey => EnumerableSetUpgradeable.UintSet) internal _pendingSlashIds;
 
@@ -61,5 +64,5 @@ abstract contract SlashingWithdrawalRouterStorage is ISlashingWithdrawalRouter {
      * variables without shifting down storage in the inheritance chain.
      * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
      */
-    uint256[46] private __gap;
+    uint256[45] private __gap;
 }

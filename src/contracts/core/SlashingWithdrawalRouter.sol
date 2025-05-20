@@ -9,8 +9,8 @@ import "./SlashingWithdrawalRouterStorage.sol";
 
 contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStorage, Pausable, SemVerMixin {
     using SafeERC20 for IERC20;
-    using OperatorSetLib for OperatorSet;
-    using EnumerableSetUpgradeable for EnumerableSetUpgradeable.UintSet;
+    using OperatorSetLib for *;
+    using EnumerableSetUpgradeable for *;
     using EnumerableMapUpgradeable for EnumerableMapUpgradeable.AddressToUintMap;
 
     /// -----------------------------------------------------------------------
@@ -52,6 +52,7 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
         require(msg.sender == address(strategyManager), OnlyStrategyManager());
 
         // Create storage pointers for readibility.
+        EnumerableSetUpgradeable.Bytes32Set storage pendingOperatorSets = _pendingOperatorSets;
         EnumerableSetUpgradeable.UintSet storage pendingSlashIds = _pendingSlashIds[operatorSet.key()];
         EnumerableMapUpgradeable.AddressToUintMap storage pendingBurnOrRedistributions =
             _pendingBurnOrRedistributions[operatorSet.key()][slashId];
@@ -61,6 +62,11 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
 
         // Add the slash ID to the pending slash IDs set.
         pendingSlashIds.add(slashId);
+
+        // Add the operator set to the pending operator sets set.
+        if (!pendingOperatorSets.contains(operatorSet.key())) {
+            pendingOperatorSets.add(operatorSet.key());
+        }
 
         // Add the strategy and underlying amount to the pending burn or redistributions map.
         pendingBurnOrRedistributions.set(address(strategy), underlyingAmount);
@@ -90,6 +96,7 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
         require(!_paused[operatorSet.key()][slashId], RedistributionCurrentlyPaused());
 
         // Create storage pointers for readibility.
+        EnumerableSetUpgradeable.Bytes32Set storage pendingOperatorSets = _pendingOperatorSets;
         EnumerableSetUpgradeable.UintSet storage pendingSlashIds = _pendingSlashIds[operatorSet.key()];
         EnumerableMapUpgradeable.AddressToUintMap storage pendingBurnOrRedistributions =
             _pendingBurnOrRedistributions[operatorSet.key()][slashId];
@@ -118,6 +125,9 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
 
         // If there are no more strategies to process, remove the slash ID from the pending slash IDs set.
         if (pendingBurnOrRedistributions.length() == 0) {
+            // Remove the operator set from the pending operator sets set.
+            pendingOperatorSets.remove(operatorSet.key());
+
             // Remove the slash ID from the pending slash IDs set.
             pendingSlashIds.remove(slashId);
 
@@ -163,6 +173,19 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
     /// -----------------------------------------------------------------------
 
     /// @inheritdoc ISlashingWithdrawalRouter
+    function getPendingOperatorSets() public view returns (OperatorSet[] memory operatorSets) {
+        bytes32[] memory operatorSetKeys = _pendingOperatorSets.values();
+
+        operatorSets = new OperatorSet[](operatorSetKeys.length);
+
+        for (uint256 i = 0; i < operatorSetKeys.length; ++i) {
+            operatorSets[i] = operatorSetKeys[i].decode();
+        }
+
+        return operatorSets;
+    }
+
+    /// @inheritdoc ISlashingWithdrawalRouter
     function getPendingSlashIds(
         OperatorSet calldata operatorSet
     ) external view returns (uint256[] memory) {
@@ -171,7 +194,7 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
 
     /// @inheritdoc ISlashingWithdrawalRouter
     function getPendingBurnOrRedistributions(
-        OperatorSet calldata operatorSet,
+        OperatorSet memory operatorSet,
         uint256 slashId
     ) public view returns (IStrategy[] memory strategies, uint256[] memory underlyingAmounts) {
         EnumerableMapUpgradeable.AddressToUintMap storage pendingBurnOrRedistributions =
@@ -192,8 +215,8 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
 
     /// @inheritdoc ISlashingWithdrawalRouter
     function getPendingBurnOrRedistributions(
-        OperatorSet calldata operatorSet
-    ) external view returns (IStrategy[][] memory strategies, uint256[][] memory underlyingAmounts) {
+        OperatorSet memory operatorSet
+    ) public view returns (IStrategy[][] memory strategies, uint256[][] memory underlyingAmounts) {
         EnumerableSetUpgradeable.UintSet storage pendingSlashIds = _pendingSlashIds[operatorSet.key()];
 
         uint256 length = pendingSlashIds.length();
@@ -203,6 +226,24 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
 
         for (uint256 i = 0; i < length; ++i) {
             (strategies[i], underlyingAmounts[i]) = getPendingBurnOrRedistributions(operatorSet, pendingSlashIds.at(i));
+        }
+    }
+
+    /// @inheritdoc ISlashingWithdrawalRouter
+    function getPendingBurnOrRedistributions()
+        public
+        view
+        returns (IStrategy[][][] memory strategies, uint256[][][] memory underlyingAmounts)
+    {
+        bytes32[] memory operatorSetKeys = _pendingOperatorSets.values();
+
+        uint256 length = operatorSetKeys.length;
+
+        strategies = new IStrategy[][][](length);
+        underlyingAmounts = new uint256[][][](length);
+
+        for (uint256 i = 0; i < length; ++i) {
+            (strategies[i], underlyingAmounts[i]) = getPendingBurnOrRedistributions(operatorSetKeys[i].decode());
         }
     }
 
