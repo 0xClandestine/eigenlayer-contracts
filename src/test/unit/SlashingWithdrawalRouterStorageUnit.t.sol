@@ -5,6 +5,8 @@ import {MockERC20} from "forge-std/mocks/MockERC20.sol";
 import "src/test/utils/EigenLayerUnitTestSetup.sol";
 import "src/contracts/core/SlashingWithdrawalRouter.sol";
 
+// TODO: check getPendingSlashIdsForOperatorSet throughout tests
+
 contract SlashingWithdrawalRouterUnitTests is EigenLayerUnitTestSetup {
     /// @notice The pause status for the `burnOrRedistributeShares` function.
     /// @dev Allows all burn or redistribution outflows to be temporarily halted.
@@ -116,14 +118,9 @@ contract SlashingWithdrawalRouterUnitTests_burnOrRedistributeShares is SlashingW
         slashingWithdrawalRouter.burnOrRedistributeShares(defaultOperatorSet, defaultSlashId);
     }
 
-    function test_burnOrRedistributeShares_correctnessMultipleStrategies(uint underlyingAmount) public {
-        _startBurnOrRedistributeShares(defaultStrategy, defaultToken, underlyingAmount);
-        cheats.prank(defaultRedistributionRecipient);
-        _mockStrategyUnderlyingTokenCall(defaultStrategy, address(defaultToken));
-        slashingWithdrawalRouter.burnOrRedistributeShares(defaultOperatorSet, defaultSlashId);
-    }
+    // TODO: test pause functionality
 
-    function test_burnOrRedistributeShares_correctnessSingleStrategy(uint underlyingAmount) public {
+    function test_burnOrRedistributeShares_correctness(uint underlyingAmount) public {
         bound(underlyingAmount, 1, type(uint128).max);
 
         IStrategy strategy2 = IStrategy(cheats.randomAddress());
