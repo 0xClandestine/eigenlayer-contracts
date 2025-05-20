@@ -188,6 +188,8 @@ contract SlashingWithdrawalRouterUnitTests_burnOrRedistributeShares is SlashingW
         _mockStrategyUnderlyingTokenCall(defaultStrategy, address(defaultToken));
         _mockStrategyUnderlyingTokenCall(strategy2, address(token2));
 
+        cheats.roll(block.number + 3.5 days / 12 seconds);
+
         // Verify correct events are emitted for both strategies.
         cheats.expectEmit(true, true, true, true);
         emit BurnOrRedistribution(defaultOperatorSet, defaultSlashId, strategy2, underlyingAmount2, defaultRedistributionRecipient);

@@ -252,7 +252,11 @@ contract SlashingWithdrawalRouter is
 
     /// @notice Checks that the new paused status is not the same as the current paused status.
     /// @dev This is needed for event sanitization.
-    function _checkNewPausedStatus(OperatorSet calldata operatorSet, uint256 slashId, bool newPauseStatus) internal view {
+    function _checkNewPausedStatus(
+        OperatorSet calldata operatorSet,
+        uint256 slashId,
+        bool newPauseStatus
+    ) internal view {
         // Assert that the new paused status is not the same as the current paused status.
         require(_paused[operatorSet.key()][slashId] != newPauseStatus, IPausable.InvalidNewPausedStatus());
     }
@@ -378,6 +382,11 @@ contract SlashingWithdrawalRouter is
         // Fetch the global and strategy burn or redistribution delay.
         uint256 globalDelay = _globalBurnOrRedistributionDelayBlocks;
         uint256 strategyDelay = _strategyBurnOrRedistributionDelayBlocks[address(strategy)];
+
+        // If the global delay or strategy delay is not set, return the minimum burn or redistribution delay.
+        if (globalDelay == 0 || strategyDelay == 0) {
+            return MINIMUM_BURN_OR_REDISTRIBUTION_DELAY_BLOCKS;
+        }
 
         // If the strategy delay is less than the global delay, return the strategy delay.
         // Otherwise, return the global delay.
