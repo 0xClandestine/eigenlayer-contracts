@@ -14,7 +14,7 @@ abstract contract SlashingWithdrawalRouterStorage is ISlashingWithdrawalRouter {
     /// -----------------------------------------------------------------------
 
     /// @dev The minimum number of blocks that must pass before a burn or redistribution can be initiated.
-    uint256 internal constant MINIMUM_BURN_OR_REDISTRIBUTION_DELAY_BLOCKS = 3.5 days / 12 seconds;
+    uint32 internal constant MINIMUM_BURN_OR_REDISTRIBUTION_DELAY_BLOCKS = 3.5 days / 12 seconds;
 
     /// @dev The default burn address for slashed funds.
     address internal constant DEFAULT_BURN_ADDRESS = 0x00000000000000000000000000000000000E16E4;

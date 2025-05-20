@@ -41,6 +41,7 @@ contract SlashingWithdrawalRouter is
     function initialize(address initialOwner, uint256 initialPausedStatus) external initializer {
         _transferOwnership(initialOwner);
         _setPausedStatus(initialPausedStatus);
+        _globalBurnOrRedistributionDelayBlocks = MINIMUM_BURN_OR_REDISTRIBUTION_DELAY_BLOCKS;
     }
 
     /// -----------------------------------------------------------------------
@@ -382,11 +383,6 @@ contract SlashingWithdrawalRouter is
         // Fetch the global and strategy burn or redistribution delay.
         uint256 globalDelay = _globalBurnOrRedistributionDelayBlocks;
         uint256 strategyDelay = _strategyBurnOrRedistributionDelayBlocks[address(strategy)];
-
-        // If the global delay or strategy delay is not set, return the minimum burn or redistribution delay.
-        if (globalDelay == 0 || strategyDelay == 0) {
-            return MINIMUM_BURN_OR_REDISTRIBUTION_DELAY_BLOCKS;
-        }
 
         // If the strategy delay is less than the global delay, return the strategy delay.
         // Otherwise, return the global delay.
