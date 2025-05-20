@@ -178,7 +178,7 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
     /// -----------------------------------------------------------------------
 
     /// @inheritdoc ISlashingWithdrawalRouter
-    function getPendingOperatorSets() public view returns (OperatorSet[] memory operatorSets) {
+    function getPendingOperatorSets() external view returns (OperatorSet[] memory operatorSets) {
         bytes32[] memory operatorSetKeys = _pendingOperatorSets.values();
 
         operatorSets = new OperatorSet[](operatorSetKeys.length);
