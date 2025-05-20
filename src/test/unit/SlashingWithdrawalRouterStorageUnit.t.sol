@@ -79,7 +79,7 @@ contract SlashingWithdrawalRouterUnitTests_startBurnOrRedistributeShares is Slas
 
         cheats.prank(address(strategyManagerMock));
         cheats.expectEmit(true, true, true, true);
-        emit RedistributionInitiated(defaultOperatorSet, defaultSlashId, defaultStrategy, underlyingAmount, uint32(block.number));
+        emit StartBurnOrRedistribution(defaultOperatorSet, defaultSlashId, defaultStrategy, underlyingAmount, uint32(block.number));
         slashingWithdrawalRouter.startBurnOrRedistributeShares(defaultOperatorSet, defaultSlashId, defaultStrategy, underlyingAmount);
         deal(address(defaultToken), address(slashingWithdrawalRouter), underlyingAmount);
 
@@ -92,7 +92,7 @@ contract SlashingWithdrawalRouterUnitTests_startBurnOrRedistributeShares is Slas
 
         cheats.prank(address(strategyManagerMock));
         cheats.expectEmit(true, true, true, true);
-        emit RedistributionInitiated(defaultOperatorSet, defaultSlashId, defaultStrategy, underlyingAmount, uint32(block.number));
+        emit StartBurnOrRedistribution(defaultOperatorSet, defaultSlashId, defaultStrategy, underlyingAmount, uint32(block.number));
         slashingWithdrawalRouter.startBurnOrRedistributeShares(defaultOperatorSet, defaultSlashId, defaultStrategy, underlyingAmount);
         deal(address(defaultToken), address(slashingWithdrawalRouter), underlyingAmount);
 
@@ -113,7 +113,7 @@ contract SlashingWithdrawalRouterUnitTests_burnOrRedistributeShares is SlashingW
     function _startBurnOrRedistributeShares(IStrategy strategy, MockERC20 token, uint underlyingAmount) internal {
         cheats.prank(address(strategyManagerMock));
         cheats.expectEmit(true, true, true, true);
-        emit RedistributionInitiated(defaultOperatorSet, defaultSlashId, strategy, underlyingAmount, uint32(block.number));
+        emit StartBurnOrRedistribution(defaultOperatorSet, defaultSlashId, strategy, underlyingAmount, uint32(block.number));
         slashingWithdrawalRouter.startBurnOrRedistributeShares(defaultOperatorSet, defaultSlashId, strategy, underlyingAmount);
         deal(address(token), address(slashingWithdrawalRouter), underlyingAmount);
     }
@@ -188,9 +188,9 @@ contract SlashingWithdrawalRouterUnitTests_burnOrRedistributeShares is SlashingW
 
         // Verify correct events are emitted for both strategies.
         cheats.expectEmit(true, true, true, true);
-        emit RedistributionReleased(defaultOperatorSet, defaultSlashId, strategy2, underlyingAmount2, defaultRedistributionRecipient);
+        emit BurnOrRedistribution(defaultOperatorSet, defaultSlashId, strategy2, underlyingAmount2, defaultRedistributionRecipient);
         cheats.expectEmit(true, true, true, true);
-        emit RedistributionReleased(defaultOperatorSet, defaultSlashId, defaultStrategy, underlyingAmount, defaultRedistributionRecipient);
+        emit BurnOrRedistribution(defaultOperatorSet, defaultSlashId, defaultStrategy, underlyingAmount, defaultRedistributionRecipient);
         slashingWithdrawalRouter.burnOrRedistributeShares(defaultOperatorSet, defaultSlashId);
 
         // Verify tokens were correctly transferred to the redistribution recipient.

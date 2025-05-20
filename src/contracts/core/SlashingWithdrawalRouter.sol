@@ -69,7 +69,7 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
         _slashIdToStartBlock[operatorSet.key()][slashId] = uint32(block.number);
 
         // Emit the event.
-        emit RedistributionInitiated(operatorSet, slashId, strategy, underlyingAmount, uint32(block.number));
+        emit StartBurnOrRedistribution(operatorSet, slashId, strategy, underlyingAmount, uint32(block.number));
     }
 
     /// @inheritdoc ISlashingWithdrawalRouter
@@ -110,7 +110,7 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
                 IStrategy(strategy).underlyingToken().safeTransfer(redistributionRecipient, underlyingAmount);
 
                 // Emit the event.
-                emit RedistributionReleased(
+                emit BurnOrRedistribution(
                     operatorSet, slashId, IStrategy(strategy), underlyingAmount, redistributionRecipient
                 );
             }

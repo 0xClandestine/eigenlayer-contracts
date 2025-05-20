@@ -23,12 +23,12 @@ interface ISlashingWithdrawalRouterErrors {
 
 interface ISlashingWithdrawalRouterEvents {
     /// @notice Emitted when a redistribution is initiated.
-    event RedistributionInitiated(
+    event StartBurnOrRedistribution(
         OperatorSet operatorSet, uint256 slashId, IStrategy strategy, uint256 underlyingAmount, uint32 startBlock
     );
 
     /// @notice Emitted when a redistribution is released.
-    event RedistributionReleased(
+    event BurnOrRedistribution(
         OperatorSet operatorSet, uint256 slashId, IStrategy strategy, uint256 underlyingAmount, address recipient
     );
 
