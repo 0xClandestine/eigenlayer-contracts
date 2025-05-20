@@ -102,6 +102,8 @@ contract SlashingWithdrawalRouterUnitTests_burnOrRedistributeShares is SlashingW
         cheats.prank(address(strategyManagerMock));
         slashingWithdrawalRouter.startBurnOrRedistributeShares(defaultOperatorSet, defaultSlashId, defaultStrategy, underlyingAmount);
         deal(address(defaultToken), address(slashingWithdrawalRouter), underlyingAmount);
+
+        // TODO: delay once added
     }
 
     function _mockStrategyUnderlyingTokenCall(IStrategy strategy, address underlyingToken) internal {
@@ -114,10 +116,16 @@ contract SlashingWithdrawalRouterUnitTests_burnOrRedistributeShares is SlashingW
         slashingWithdrawalRouter.burnOrRedistributeShares(defaultOperatorSet, defaultSlashId);
     }
 
-    function test_burnOrRedistributeShares_correctness(uint underlyingAmount) public {
+    function test_burnOrRedistributeShares_correctnessSingleStrategy(uint underlyingAmount) public {
         _scenario(underlyingAmount);
         cheats.prank(defaultRedistributionRecipient);
         _mockStrategyUnderlyingTokenCall(defaultStrategy, address(defaultToken));
         slashingWithdrawalRouter.burnOrRedistributeShares(defaultOperatorSet, defaultSlashId);
+        assertEq(defaultToken.balanceOf(defaultRedistributionRecipient), underlyingAmount);
+        ISlashingWithdrawalRouterTypes.RedistributionEscrow memory escrow =
+            slashingWithdrawalRouter.getRedistributionEscrow(defaultOperatorSet, defaultSlashId);
+        assertEq(escrow.underlyingAmounts.length, 0);
+        assertEq(escrow.strategies.length, 0);
+        assertEq(escrow.startBlock, 0);
     }
 }
