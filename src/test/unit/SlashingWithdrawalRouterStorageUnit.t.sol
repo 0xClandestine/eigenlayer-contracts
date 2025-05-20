@@ -5,9 +5,7 @@ import {MockERC20} from "forge-std/mocks/MockERC20.sol";
 import "src/test/utils/EigenLayerUnitTestSetup.sol";
 import "src/contracts/core/SlashingWithdrawalRouter.sol";
 
-// TODO: check getPendingSlashIdsForOperatorSet throughout tests
-
-contract SlashingWithdrawalRouterUnitTests is EigenLayerUnitTestSetup {
+contract SlashingWithdrawalRouterUnitTests is EigenLayerUnitTestSetup, ISlashingWithdrawalRouterEvents {
     /// @notice The pause status for the `burnOrRedistributeShares` function.
     /// @dev Allows all burn or redistribution outflows to be temporarily halted.
     uint8 public constant PAUSED_BURN_OR_REDISTRIBUTE_SHARES = 0;
@@ -80,6 +78,8 @@ contract SlashingWithdrawalRouterUnitTests_startBurnOrRedistributeShares is Slas
         allocationManagerMock.setRedistributionRecipient(defaultOperatorSet, defaultRedistributionRecipient);
 
         cheats.prank(address(strategyManagerMock));
+        cheats.expectEmit(true, true, true, true);
+        emit RedistributionInitiated(defaultOperatorSet, defaultSlashId, defaultStrategy, underlyingAmount, uint32(block.number));
         slashingWithdrawalRouter.startBurnOrRedistributeShares(defaultOperatorSet, defaultSlashId, defaultStrategy, underlyingAmount);
         deal(address(defaultToken), address(slashingWithdrawalRouter), underlyingAmount);
 
@@ -91,6 +91,8 @@ contract SlashingWithdrawalRouterUnitTests_startBurnOrRedistributeShares is Slas
         allocationManagerMock.setRedistributionRecipient(defaultOperatorSet, defaultRedistributionRecipient);
 
         cheats.prank(address(strategyManagerMock));
+        cheats.expectEmit(true, true, true, true);
+        emit RedistributionInitiated(defaultOperatorSet, defaultSlashId, defaultStrategy, underlyingAmount, uint32(block.number));
         slashingWithdrawalRouter.startBurnOrRedistributeShares(defaultOperatorSet, defaultSlashId, defaultStrategy, underlyingAmount);
         deal(address(defaultToken), address(slashingWithdrawalRouter), underlyingAmount);
 
@@ -110,6 +112,8 @@ contract SlashingWithdrawalRouterUnitTests_startBurnOrRedistributeShares is Slas
 contract SlashingWithdrawalRouterUnitTests_burnOrRedistributeShares is SlashingWithdrawalRouterUnitTests {
     function _startBurnOrRedistributeShares(IStrategy strategy, MockERC20 token, uint underlyingAmount) internal {
         cheats.prank(address(strategyManagerMock));
+        cheats.expectEmit(true, true, true, true);
+        emit RedistributionInitiated(defaultOperatorSet, defaultSlashId, strategy, underlyingAmount, uint32(block.number));
         slashingWithdrawalRouter.startBurnOrRedistributeShares(defaultOperatorSet, defaultSlashId, strategy, underlyingAmount);
         deal(address(token), address(slashingWithdrawalRouter), underlyingAmount);
     }
@@ -124,50 +128,97 @@ contract SlashingWithdrawalRouterUnitTests_burnOrRedistributeShares is SlashingW
         _startBurnOrRedistributeShares(defaultStrategy, defaultToken, underlyingAmount);
 
         cheats.prank(pauser);
+        cheats.expectEmit(true, true, true, true);
+        emit RedistributionPaused(defaultOperatorSet, defaultSlashId);
         slashingWithdrawalRouter.pauseRedistribution(defaultOperatorSet, defaultSlashId);
 
         cheats.prank(defaultRedistributionRecipient);
         cheats.expectRevert(ISlashingWithdrawalRouterErrors.RedistributionCurrentlyPaused.selector);
         slashingWithdrawalRouter.burnOrRedistributeShares(defaultOperatorSet, defaultSlashId);
+
+        cheats.prank(unpauser);
+        cheats.expectEmit(true, true, true, true);
+        emit RedistributionUnpaused(defaultOperatorSet, defaultSlashId);
+        slashingWithdrawalRouter.unpauseRedistribution(defaultOperatorSet, defaultSlashId);
     }
 
-    function testFuzz_burnOrRedistributeShares_correctness(uint underlyingAmount) public {
-        bound(underlyingAmount, 1, type(uint128).max);
-
-        IStrategy strategy2 = IStrategy(cheats.randomAddress());
+    function testFuzz_burnOrRedistributeShares_correctness(uint underlyingAmount, uint underlyingAmount2) public {
+        // Create a second token and strategy for testing multiple redistributions.
         MockERC20 token2 = new MockERC20();
-        uint underlyingAmount2 = 2 * underlyingAmount;
+        IStrategy strategy2 = IStrategy(cheats.randomAddress());
 
+        // Start redistribution process for both strategies.
         _startBurnOrRedistributeShares(defaultStrategy, defaultToken, underlyingAmount);
         _startBurnOrRedistributeShares(strategy2, token2, underlyingAmount2);
 
+        // Check all view functions BEFORE burn/redistribution
+        // Check pending slash IDs
         uint[] memory slashIds = slashingWithdrawalRouter.getPendingSlashIds(defaultOperatorSet);
         assertEq(slashIds.length, 1);
         assertEq(slashIds[0], defaultSlashId);
 
+        // Check pending burn/redistributions
         (IStrategy[] memory strategies, uint[] memory amounts) =
             slashingWithdrawalRouter.getPendingBurnOrRedistributions(defaultOperatorSet, defaultSlashId);
         assertEq(strategies.length, 2);
         assertEq(amounts.length, 2);
-        // assertEq(address(strategies[0]), address(defaultStrategy));
-        // assertEq(address(strategies[1]), address(strategy2));
-        // assertEq(amounts[0], underlyingAmount);
-        // assertEq(amounts[1], underlyingAmount2);
+        assertEq(address(strategies[0]), address(defaultStrategy));
+        assertEq(address(strategies[1]), address(strategy2));
+        assertEq(amounts[0], underlyingAmount);
+        assertEq(amounts[1], underlyingAmount2);
 
-        // cheats.prank(defaultRedistributionRecipient);
-        // _mockStrategyUnderlyingTokenCall(defaultStrategy, address(defaultToken));
-        // _mockStrategyUnderlyingTokenCall(strategy2, address(token2));
-        // slashingWithdrawalRouter.burnOrRedistributeShares(defaultOperatorSet, defaultSlashId);
+        // Check pending burn/redistributions count
+        uint count = slashingWithdrawalRouter.getPendingBurnOrRedistributionsCount(defaultOperatorSet, defaultSlashId);
+        assertEq(count, 2);
 
-        // assertEq(defaultToken.balanceOf(defaultRedistributionRecipient), underlyingAmount);
-        // assertEq(token2.balanceOf(defaultRedistributionRecipient), underlyingAmount2);
+        // Check pending underlying amounts for each strategy
+        uint amount1 = slashingWithdrawalRouter.getPendingUnderlyingAmountForStrategy(defaultOperatorSet, defaultSlashId, defaultStrategy);
+        uint amount2 = slashingWithdrawalRouter.getPendingUnderlyingAmountForStrategy(defaultOperatorSet, defaultSlashId, strategy2);
+        assertEq(amount1, underlyingAmount);
+        assertEq(amount2, underlyingAmount2);
 
-        // // Verify the pending slash ID and burn/redistributions are cleared
-        // slashIds = slashingWithdrawalRouter.getPendingSlashIds(defaultOperatorSet);
-        // assertEq(slashIds.length, 0);
+        // Check redistribution pause status
+        bool isPaused = slashingWithdrawalRouter.isRedistributionPaused(defaultOperatorSet, defaultSlashId);
+        assertFalse(isPaused);
 
-        // (strategies, amounts) = slashingWithdrawalRouter.getPendingBurnOrRedistributions(defaultOperatorSet, defaultSlashId);
-        // assertEq(strategies.length, 0);
-        // assertEq(amounts.length, 0);
+        // Execute the redistribution as the authorized recipient.
+        cheats.prank(defaultRedistributionRecipient);
+        _mockStrategyUnderlyingTokenCall(defaultStrategy, address(defaultToken));
+        _mockStrategyUnderlyingTokenCall(strategy2, address(token2));
+
+        // Verify correct events are emitted for both strategies.
+        cheats.expectEmit(true, true, true, true);
+        emit RedistributionReleased(defaultOperatorSet, defaultSlashId, strategy2, underlyingAmount2, defaultRedistributionRecipient);
+        cheats.expectEmit(true, true, true, true);
+        emit RedistributionReleased(defaultOperatorSet, defaultSlashId, defaultStrategy, underlyingAmount, defaultRedistributionRecipient);
+        slashingWithdrawalRouter.burnOrRedistributeShares(defaultOperatorSet, defaultSlashId);
+
+        // Verify tokens were correctly transferred to the redistribution recipient.
+        assertEq(defaultToken.balanceOf(defaultRedistributionRecipient), underlyingAmount);
+        assertEq(token2.balanceOf(defaultRedistributionRecipient), underlyingAmount2);
+
+        // Check all view functions AFTER burn/redistribution
+        // Check pending slash IDs are cleared
+        slashIds = slashingWithdrawalRouter.getPendingSlashIds(defaultOperatorSet);
+        assertEq(slashIds.length, 0);
+
+        // Check pending burn/redistributions are cleared
+        (strategies, amounts) = slashingWithdrawalRouter.getPendingBurnOrRedistributions(defaultOperatorSet, defaultSlashId);
+        assertEq(strategies.length, 0);
+        assertEq(amounts.length, 0);
+
+        // Check pending burn/redistributions count is zero
+        count = slashingWithdrawalRouter.getPendingBurnOrRedistributionsCount(defaultOperatorSet, defaultSlashId);
+        assertEq(count, 0);
+
+        // Check pending underlying amounts are zero for both strategies
+        amount1 = slashingWithdrawalRouter.getPendingUnderlyingAmountForStrategy(defaultOperatorSet, defaultSlashId, defaultStrategy);
+        amount2 = slashingWithdrawalRouter.getPendingUnderlyingAmountForStrategy(defaultOperatorSet, defaultSlashId, strategy2);
+        assertEq(amount1, 0);
+        assertEq(amount2, 0);
+
+        // Check redistribution pause status remains unchanged
+        isPaused = slashingWithdrawalRouter.isRedistributionPaused(defaultOperatorSet, defaultSlashId);
+        assertFalse(isPaused);
     }
 }
