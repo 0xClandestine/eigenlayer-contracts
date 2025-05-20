@@ -101,4 +101,11 @@ interface ISlashingWithdrawalRouter is ISlashingWithdrawalRouterErrors, ISlashin
     /// @param operatorSet The operator set whose redistribution is being queried.
     /// @param slashId The slash ID of the redistribution that is being queried.
     function isRedistributionPaused(OperatorSet calldata operatorSet, uint256 slashId) external view returns (bool);
+
+    /// @notice Returns the pending slash IDs for an operator set.
+    /// @param operatorSet The operator set whose pending slash IDs are being queried.
+    /// @dev This functions gas cost increases linearly as the number of slashes increases and is primarily intended to be used off-chain.
+    function getPendingSlashIdsForOperatorSet(
+        OperatorSet calldata operatorSet
+    ) external view returns (uint256[] memory);
 }

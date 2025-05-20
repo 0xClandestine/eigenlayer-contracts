@@ -84,11 +84,10 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
         // Create a storage pointer to the escrow array.
         RedistributionEscrow storage escrow = _escrow[operatorSet.key()][slashId];
 
-        // TODO: Implement wrapped delay getter, see DM strategy delay logic.
-        uint32 delay;
-
-        // Assert that the escrow is mature.
-        require(escrow.startBlock + delay > block.number, RedistributionNotMature());
+        // // TODO: Implement wrapped delay getter, see DM strategy delay logic.
+        // uint32 delay;
+        // // Assert that the escrow is mature.
+        // require(escrow.startBlock + delay > block.number, RedistributionNotMature());
 
         // Fetch the length of the escrow array.
         uint256 totalStrategies = escrow.strategies.length;
@@ -114,6 +113,7 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
             // Then pop the last element off the array, since it's now a duplicate.
             escrow.underlyingAmounts.pop();
             escrow.strategies.pop();
+            escrow.startBlock = 0;
         }
     }
 
@@ -164,5 +164,35 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
     /// @inheritdoc ISlashingWithdrawalRouter
     function isRedistributionPaused(OperatorSet calldata operatorSet, uint256 slashId) external view returns (bool) {
         return _paused[operatorSet.key()][slashId];
+    }
+
+    /// @inheritdoc ISlashingWithdrawalRouter
+    function getPendingSlashIdsForOperatorSet(
+        OperatorSet calldata operatorSet
+    ) external view returns (uint256[] memory) {
+        // Get the total number of slashes for this operator set from the allocation manager.
+        uint32 slashCount = allocationManager.getSlashCount(operatorSet);
+
+        // Create a temporary array to store all potential slash IDs.
+        // We initialize it with the maximum possible size (slashCount).
+        uint256[] memory slashIds = new uint256[](slashCount);
+        uint256 index = 0;
+
+        // Iterate through all possible slash IDs up to the slash count.
+        for (uint32 i = 0; i < slashCount; ++i) {
+            // Check if this slash ID has an active escrow (startBlock != 0).
+            if (_escrow[operatorSet.key()][i].startBlock != 0) {
+                // If active, add it to our array and increment the index.
+                slashIds[index++] = i;
+            }
+        }
+
+        // Use assembly to resize the array to the actual number of active slashes found.
+        // This is more gas efficient than creating a new array (requires copying all elements).
+        assembly {
+            mstore(slashIds, index)
+        }
+
+        return slashIds;
     }
 }
