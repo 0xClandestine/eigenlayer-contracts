@@ -11,14 +11,11 @@ interface ISlashingWithdrawalRouterErrors {
     /// @notice Thrown when a caller is not the redistribution recipient.
     error OnlyRedistributionRecipient();
 
-    /// @notice Thrown when a redistribution is already paused.
-    error RedistributionCurrentlyPaused();
-
-    /// @notice Thrown when a redistribution is not paused.
-    error RedistributionNotPaused();
-
     /// @notice Thrown when a redistribution is not mature.
     error RedistributionNotMature();
+
+    /// @notice Thrown when a burn or redistribution delay is less than the minimum burn or redistribution delay.
+    error BurnOrRedistributionDelayLessThanMinimum();
 }
 
 interface ISlashingWithdrawalRouterEvents {
@@ -37,14 +34,19 @@ interface ISlashingWithdrawalRouterEvents {
 
     /// @notice Emitted when a redistribution is unpaused.
     event RedistributionUnpaused(OperatorSet operatorSet, uint256 slashId);
+
+    /// @notice Emitted when a global burn or redistribution delay is set.
+    event GlobalBurnOrRedistributionDelaySet(uint256 delay);
+
+    /// @notice Emitted when a burn or redistribution delay is set.
+    event StrategyBurnOrRedistributionDelaySet(IStrategy strategy, uint256 delay);
 }
 
 interface ISlashingWithdrawalRouter is ISlashingWithdrawalRouterErrors, ISlashingWithdrawalRouterEvents {
     /// @notice Initializes initial admin, pauser, and unpauser roles.
+    /// @param initialOwner The initial owner of the router.
     /// @param initialPausedStatus The initial paused status of the router.
-    function initialize(
-        uint256 initialPausedStatus
-    ) external;
+    function initialize(address initialOwner, uint256 initialPausedStatus) external;
 
     /// @notice Locks up a redistribution.
     /// @param operatorSet The operator set whose redistribution is being locked up.
@@ -76,6 +78,18 @@ interface ISlashingWithdrawalRouter is ISlashingWithdrawalRouterErrors, ISlashin
     /// @param operatorSet The operator set whose redistribution is being unpaused.
     /// @param slashId The slash ID of the redistribution that is being unpaused.
     function unpauseRedistribution(OperatorSet calldata operatorSet, uint256 slashId) external;
+
+    /// @notice Sets the delay for the burn or redistribution of a strategies underlying token.
+    /// @dev If the strategy delay is less than the global delay, the strategy delay will be used.
+    /// @param strategy The strategy whose burn or redistribution delay is being set.
+    /// @param delay The delay for the burn or redistribution.
+    function setStrategyBurnOrRedistributionDelay(IStrategy strategy, uint256 delay) external;
+
+    /// @notice Sets the delay for the burn or redistribution of all strategies underlying tokens globally.
+    /// @param delay The delay for the burn or redistribution.
+    function setGlobalBurnOrRedistributionDelay(
+        uint256 delay
+    ) external;
 
     /// @notice Returns the operator sets that have pending burn or redistributions.
     /// @return operatorSets The operator sets that have pending burn or redistributions.
@@ -140,5 +154,19 @@ interface ISlashingWithdrawalRouter is ISlashingWithdrawalRouterErrors, ISlashin
     /// @param operatorSet The operator set whose redistribution is being queried.
     /// @param slashId The slash ID of the redistribution that is being queried.
     /// @return The paused status of the redistribution.
-    function isRedistributionPaused(OperatorSet calldata operatorSet, uint256 slashId) external view returns (bool);
+    function isBurnOrRedistributionPaused(
+        OperatorSet calldata operatorSet,
+        uint256 slashId
+    ) external view returns (bool);
+
+    /// @notice Returns the burn or redistribution delay for a strategy.
+    /// @param strategy The strategy whose burn or redistribution delay is being queried.
+    /// @return The burn or redistribution delay.
+    function getStrategyBurnOrRedistributionDelay(
+        IStrategy strategy
+    ) external view returns (uint256);
+
+    /// @notice Returns the global burn or redistribution delay.
+    /// @return The global burn or redistribution delay.
+    function getGlobalBurnOrRedistributionDelay() external view returns (uint256);
 }

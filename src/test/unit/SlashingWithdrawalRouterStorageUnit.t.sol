@@ -17,9 +17,17 @@ contract SlashingWithdrawalRouterUnitTests is EigenLayerUnitTestSetup, ISlashing
     MockERC20 defaultToken;
     uint defaultSlashId;
     address defaultRedistributionRecipient;
+    address defaultOwner;
 
     function setUp() public virtual override {
         EigenLayerUnitTestSetup.setUp();
+        defaultOperatorSet = OperatorSet(cheats.randomAddress(), 0);
+        defaultStrategy = IStrategy(cheats.randomAddress());
+        defaultToken = new MockERC20();
+        defaultSlashId = 1;
+        defaultRedistributionRecipient = address(cheats.randomAddress());
+        defaultOwner = address(cheats.randomAddress());
+        allocationManagerMock.setRedistributionRecipient(defaultOperatorSet, defaultRedistributionRecipient);
         slashingWithdrawalRouter = SlashingWithdrawalRouter(
             address(
                 new TransparentUpgradeableProxy(
@@ -32,16 +40,10 @@ contract SlashingWithdrawalRouterUnitTests is EigenLayerUnitTestSetup, ISlashing
                         )
                     ),
                     address(eigenLayerProxyAdmin),
-                    abi.encodeWithSelector(SlashingWithdrawalRouter.initialize.selector, 0)
+                    abi.encodeWithSelector(SlashingWithdrawalRouter.initialize.selector, defaultOwner, 0)
                 )
             )
         );
-        defaultOperatorSet = OperatorSet(cheats.randomAddress(), 0);
-        defaultStrategy = IStrategy(cheats.randomAddress());
-        defaultToken = new MockERC20();
-        defaultSlashId = 1;
-        defaultRedistributionRecipient = address(cheats.randomAddress());
-        allocationManagerMock.setRedistributionRecipient(defaultOperatorSet, defaultRedistributionRecipient);
         cheats.warp(100);
     }
 
@@ -133,7 +135,7 @@ contract SlashingWithdrawalRouterUnitTests_burnOrRedistributeShares is SlashingW
         slashingWithdrawalRouter.pauseRedistribution(defaultOperatorSet, defaultSlashId);
 
         cheats.prank(defaultRedistributionRecipient);
-        cheats.expectRevert(ISlashingWithdrawalRouterErrors.RedistributionCurrentlyPaused.selector);
+        cheats.expectRevert(IPausable.CurrentlyPaused.selector);
         slashingWithdrawalRouter.burnOrRedistributeShares(defaultOperatorSet, defaultSlashId);
 
         cheats.prank(unpauser);
@@ -178,7 +180,7 @@ contract SlashingWithdrawalRouterUnitTests_burnOrRedistributeShares is SlashingW
         assertEq(amount2, underlyingAmount2);
 
         // Check redistribution pause status
-        bool isPaused = slashingWithdrawalRouter.isRedistributionPaused(defaultOperatorSet, defaultSlashId);
+        bool isPaused = slashingWithdrawalRouter.isBurnOrRedistributionPaused(defaultOperatorSet, defaultSlashId);
         assertFalse(isPaused);
 
         // Execute the redistribution as the authorized recipient.
@@ -218,7 +220,7 @@ contract SlashingWithdrawalRouterUnitTests_burnOrRedistributeShares is SlashingW
         assertEq(amount2, 0);
 
         // Check redistribution pause status remains unchanged
-        isPaused = slashingWithdrawalRouter.isRedistributionPaused(defaultOperatorSet, defaultSlashId);
+        isPaused = slashingWithdrawalRouter.isBurnOrRedistributionPaused(defaultOperatorSet, defaultSlashId);
         assertFalse(isPaused);
     }
 }

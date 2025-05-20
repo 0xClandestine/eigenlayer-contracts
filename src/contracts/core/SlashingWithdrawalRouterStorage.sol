@@ -13,6 +13,9 @@ abstract contract SlashingWithdrawalRouterStorage is ISlashingWithdrawalRouter {
     /// Constants
     /// -----------------------------------------------------------------------
 
+    /// @dev The minimum number of blocks that must pass before a burn or redistribution can be initiated.
+    uint256 internal constant MINIMUM_BURN_OR_REDISTRIBUTION_DELAY_BLOCKS = 3.5 days / 12 seconds;
+
     /// @dev The default burn address for slashed funds.
     address internal constant DEFAULT_BURN_ADDRESS = 0x00000000000000000000000000000000000E16E4;
 
@@ -49,6 +52,12 @@ abstract contract SlashingWithdrawalRouterStorage is ISlashingWithdrawalRouter {
 
     /// @notice Returns the paused status for a given operator set and slash ID.
     mapping(bytes32 operatorSetKey => mapping(uint256 slashId => bool paused)) internal _paused;
+
+    /// @dev Returns the burn or redistribution delay for a given strategy.
+    uint32 internal _globalBurnOrRedistributionDelayBlocks;
+
+    /// @dev Returns the operator set delay for a given strategy.
+    mapping(address strategy => uint32 delay) internal _strategyBurnOrRedistributionDelayBlocks;
 
     /// -----------------------------------------------------------------------
     /// Construction
