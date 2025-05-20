@@ -255,7 +255,7 @@ contract SlashingWithdrawalRouter is
         // Assert that the new paused status is not the same as the current paused status.
         require(_paused[operatorSet.key()][slashId] != newPauseStatus, IPausable.InvalidNewPausedStatus());
     }
-    
+
     /// -----------------------------------------------------------------------
     /// Getters
     /// -----------------------------------------------------------------------
