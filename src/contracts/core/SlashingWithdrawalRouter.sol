@@ -94,28 +94,26 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
         EnumerableMapUpgradeable.AddressToUintMap storage pendingBurnOrRedistributions =
             _pendingBurnOrRedistributions[operatorSet.key()][slashId];
 
-        // // TODO: Implement wrapped delay getter, see DM strategy delay logic.
-        // uint32 delay;
-        // // Assert that the escrow is mature.
-        // require(escrow.startBlock + delay > block.number, RedistributionNotMature());
-
         // Fetch the length of the escrow array.
         uint256 length = pendingBurnOrRedistributions.length();
 
         // Iterate over the escrow array in reverse order and pop the processed entries from storage.
-        for (uint256 i = 0; i < length; ++i) {
-            (address strategy, uint256 underlyingAmount) = pendingBurnOrRedistributions.at(i);
+        for (uint256 i = length; i > 0; --i) {
+            (address strategy, uint256 underlyingAmount) = pendingBurnOrRedistributions.at(i - 1);
 
-            // Remove the strategy and underlying amount from the pending burn or redistributions map.
-            pendingBurnOrRedistributions.remove(strategy);
+            // TODO: delay
+            if (true) {
+                // Remove the strategy and underlying amount from the pending burn or redistributions map.
+                pendingBurnOrRedistributions.remove(strategy);
 
-            // Transfer the escrowed tokens to the caller.
-            IStrategy(strategy).underlyingToken().safeTransfer(redistributionRecipient, underlyingAmount);
+                // Transfer the escrowed tokens to the caller.
+                IStrategy(strategy).underlyingToken().safeTransfer(redistributionRecipient, underlyingAmount);
 
-            // Emit the event.
-            emit RedistributionReleased(
-                operatorSet, slashId, IStrategy(strategy), underlyingAmount, redistributionRecipient
-            );
+                // Emit the event.
+                emit RedistributionReleased(
+                    operatorSet, slashId, IStrategy(strategy), underlyingAmount, redistributionRecipient
+                );
+            }
         }
 
         // If there are no more strategies to process, remove the slash ID from the pending slash IDs set.
@@ -191,6 +189,8 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
             underlyingAmounts[i] = underlyingAmount;
         }
     }
+
+    // TODO: nested array version of ^^^
 
     /// @inheritdoc ISlashingWithdrawalRouter
     function getPendingBurnOrRedistributionsCount(
