@@ -123,16 +123,21 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
             }
         }
 
-        // If there are no more strategies to process, remove the slash ID from the pending slash IDs set.
-        if (pendingBurnOrRedistributions.length() == 0) {
-            // Remove the operator set from the pending operator sets set.
-            pendingOperatorSets.remove(operatorSet.key());
+        uint256 length = pendingBurnOrRedistributions.length();
 
+        // If there are no more strategies to process, remove the slash ID from the pending slash IDs set.
+        if (length == 0) {
             // Remove the slash ID from the pending slash IDs set.
             pendingSlashIds.remove(slashId);
 
             // Delete the start block for the slash ID.
             delete _slashIdToStartBlock[operatorSet.key()][slashId];
+        }
+
+        // If there are no more strategies to process and no more slash IDs, remove the operator set from the pending operator sets set.
+        if (length == 0 && pendingSlashIds.length() == 0) {
+            // Remove the operator set from the pending operator sets set.
+            pendingOperatorSets.remove(operatorSet.key());
         }
     }
 
