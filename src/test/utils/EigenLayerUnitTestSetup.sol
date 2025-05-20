@@ -16,8 +16,8 @@ import "src/test/mocks/AllocationManagerMock.sol";
 import "src/test/mocks/StrategyManagerMock.sol";
 import "src/test/mocks/DelegationManagerMock.sol";
 import "src/test/mocks/EigenPodManagerMock.sol";
-import "src/test/mocks/EmptyContract.sol";
 import "src/test/mocks/SlashingWithdrawalRouterMock.sol";
+import "src/test/mocks/EmptyContract.sol";
 
 import "src/test/utils/ArrayLib.sol";
 import "src/test/utils/Random.sol";
@@ -44,8 +44,9 @@ abstract contract EigenLayerUnitTestSetup is Test {
     StrategyManagerMock strategyManagerMock;
     DelegationManagerMock delegationManagerMock;
     EigenPodManagerMock eigenPodManagerMock;
-    EmptyContract emptyContract;
     SlashingWithdrawalRouterMock slashingWithdrawalRouterMock;
+    EmptyContract emptyContract;
+
     mapping(address => bool) public isExcludedFuzzAddress;
 
     modifier filterFuzzedAddressInputs(address addr) {

@@ -171,7 +171,7 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
         OperatorSet calldata operatorSet
     ) external view returns (uint256[] memory) {
         // Get the total number of slashes for this operator set from the allocation manager.
-        uint32 slashCount = allocationManager.getSlashCount(operatorSet);
+        uint256 slashCount = allocationManager.getSlashCount(operatorSet);
 
         // Create a temporary array to store all potential slash IDs.
         // We initialize it with the maximum possible size (slashCount).
@@ -179,7 +179,7 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
         uint256 index = 0;
 
         // Iterate through all possible slash IDs up to the slash count.
-        for (uint32 i = 0; i < slashCount; ++i) {
+        for (uint256 i = 0; i < slashCount; ++i) {
             // Check if this slash ID has an active escrow (startBlock != 0).
             if (_escrow[operatorSet.key()][i].startBlock != 0) {
                 // If active, add it to our array and increment the index.
