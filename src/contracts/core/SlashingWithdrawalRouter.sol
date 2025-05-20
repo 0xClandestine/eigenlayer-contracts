@@ -161,9 +161,6 @@ contract SlashingWithdrawalRouter is
     function setGlobalBurnOrRedistributionDelay(
         uint256 delay
     ) external onlyOwner {
-        // Assert that the delay is greater than the minimum burn or redistribution delay.
-        _checkBurnOrRedistributionDelay(delay);
-
         // Set the global burn or redistribution delay.
         _globalBurnOrRedistributionDelayBlocks = uint32(delay);
 
@@ -173,9 +170,6 @@ contract SlashingWithdrawalRouter is
 
     /// @inheritdoc ISlashingWithdrawalRouter
     function setStrategyBurnOrRedistributionDelay(IStrategy strategy, uint256 delay) external onlyOwner {
-        // Assert that the delay is greater than the minimum burn or redistribution delay.
-        _checkBurnOrRedistributionDelay(delay);
-
         // Set the burn or redistribution delay.
         _strategyBurnOrRedistributionDelayBlocks[address(strategy)] = uint32(delay);
 
@@ -261,14 +255,7 @@ contract SlashingWithdrawalRouter is
         // Assert that the new paused status is not the same as the current paused status.
         require(_paused[operatorSet.key()][slashId] != newPauseStatus, IPausable.InvalidNewPausedStatus());
     }
-
-    /// @notice Checks that the burn or redistribution delay is greater than the minimum burn or redistribution delay.
-    function _checkBurnOrRedistributionDelay(
-        uint256 delay
-    ) internal pure {
-        require(delay > MINIMUM_BURN_OR_REDISTRIBUTION_DELAY_BLOCKS, BurnOrRedistributionDelayLessThanMinimum());
-    }
-
+    
     /// -----------------------------------------------------------------------
     /// Getters
     /// -----------------------------------------------------------------------
