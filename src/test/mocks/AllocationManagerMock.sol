@@ -19,6 +19,15 @@ contract AllocationManagerMock is Test {
     mapping(address avs => uint) public getOperatorSetCount;
     mapping(address => mapping(IStrategy => Snapshots.DefaultWadHistory)) internal _maxMagnitudeHistory;
     mapping(bytes32 operatorSetKey => address) public _getRedistributionRecipient;
+    mapping(bytes32 operatorSetKey => uint) public _getSlashCount;
+
+    function getSlashCount(OperatorSet memory operatorSet) external view returns (uint) {
+        return _getSlashCount[operatorSet.key()];
+    }
+
+    function setSlashCount(OperatorSet memory operatorSet, uint slashCount) external {
+        _getSlashCount[operatorSet.key()] = slashCount;
+    }
 
     function getRedistributionRecipient(OperatorSet memory operatorSet) external view returns (address recipient) {
         recipient = _getRedistributionRecipient[operatorSet.key()];

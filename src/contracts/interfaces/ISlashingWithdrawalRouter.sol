@@ -21,19 +21,7 @@ interface ISlashingWithdrawalRouterErrors {
     error RedistributionNotMature();
 }
 
-interface ISlashingWithdrawalRouterTypes {
-    /// @notice A struct that represents an escrow for a redistribution.
-    /// @param underlyingAmount The amount of underlying tokens that is being redistributed.
-    /// @param strategy The strategy that is being redistributed.
-    /// @param startBlock The block number at which the escrow will be released, assuming the redistribution is not paused.
-    struct RedistributionEscrow {
-        uint256[] underlyingAmounts;
-        IStrategy[] strategies;
-        uint32 startBlock;
-    }
-}
-
-interface ISlashingWithdrawalRouterEvents is ISlashingWithdrawalRouterTypes {
+interface ISlashingWithdrawalRouterEvents {
     /// @notice Emitted when a redistribution is initiated.
     event RedistributionInitiated(
         OperatorSet operatorSet, uint256 slashId, IStrategy strategy, uint256 underlyingAmount, uint32 startBlock
@@ -89,23 +77,45 @@ interface ISlashingWithdrawalRouter is ISlashingWithdrawalRouterErrors, ISlashin
     /// @param slashId The slash ID of the redistribution that is being unpaused.
     function unpauseRedistribution(OperatorSet calldata operatorSet, uint256 slashId) external;
 
-    /// @notice Returns the escrow for a redistribution.
-    /// @param operatorSet The operator set whose redistribution is being queried.
-    /// @param slashId The slash ID of the redistribution that is being queried.
-    function getRedistributionEscrow(
+    /// @notice Returns the pending slash IDs for an operator set.
+    /// @param operatorSet The operator set whose pending slash IDs are being queried.
+    function getPendingSlashIds(
+        OperatorSet calldata operatorSet
+    ) external view returns (uint256[] memory);
+
+    /// @notice Returns the pending burn or redistributions for an operator set and slash ID.
+    /// @param operatorSet The operator set whose pending burn or redistributions are being queried.
+    /// @param slashId The slash ID of the burn or redistribution that is being queried.
+    /// @return strategies The strategies that are pending burn or redistribution.
+    /// @return underlyingAmounts The underlying amounts that are pending burn or redistribution.
+    function getPendingBurnOrRedistributions(
         OperatorSet calldata operatorSet,
         uint256 slashId
-    ) external view returns (RedistributionEscrow memory);
+    ) external view returns (IStrategy[] memory strategies, uint256[] memory underlyingAmounts);
+
+    /// @notice Returns the number of pending burn or redistributions for an operator set and slash ID.
+    /// @param operatorSet The operator set whose pending burn or redistributions are being queried.
+    /// @param slashId The slash ID of the burn or redistribution that is being queried.
+    /// @return The number of pending burn or redistributions.
+    function getPendingBurnOrRedistributionsCount(
+        OperatorSet calldata operatorSet,
+        uint256 slashId
+    ) external view returns (uint256);
+
+    /// @notice Returns the pending underlying amount for a strategy for an operator set and slash ID.
+    /// @param operatorSet The operator set whose pending underlying amount is being queried.
+    /// @param slashId The slash ID of the burn or redistribution that is being queried.
+    /// @param strategy The strategy whose pending underlying amount is being queried.
+    /// @return The pending underlying amount.
+    function getPendingUnderlyingAmountForStrategy(
+        OperatorSet calldata operatorSet,
+        uint256 slashId,
+        IStrategy strategy
+    ) external view returns (uint256);
 
     /// @notice Returns the paused status of a redistribution.
     /// @param operatorSet The operator set whose redistribution is being queried.
     /// @param slashId The slash ID of the redistribution that is being queried.
+    /// @return The paused status of the redistribution.
     function isRedistributionPaused(OperatorSet calldata operatorSet, uint256 slashId) external view returns (bool);
-
-    /// @notice Returns the pending slash IDs for an operator set.
-    /// @param operatorSet The operator set whose pending slash IDs are being queried.
-    /// @dev This functions gas cost increases linearly as the number of slashes increases and is primarily intended to be used off-chain.
-    function getPendingSlashIdsForOperatorSet(
-        OperatorSet calldata operatorSet
-    ) external view returns (uint256[] memory);
 }

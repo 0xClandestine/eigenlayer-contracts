@@ -10,6 +10,8 @@ import "./SlashingWithdrawalRouterStorage.sol";
 contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStorage, Pausable, SemVerMixin {
     using SafeERC20 for IERC20;
     using OperatorSetLib for OperatorSet;
+    using EnumerableSetUpgradeable for EnumerableSetUpgradeable.UintSet;
+    using EnumerableMapUpgradeable for EnumerableMapUpgradeable.AddressToUintMap;
 
     /// -----------------------------------------------------------------------
     /// Initialization
@@ -49,19 +51,25 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
         // Assert that the caller is the `StrategyManager`.
         require(msg.sender == address(strategyManager), OnlyStrategyManager());
 
-        // Create a storage pointer to the escrow array.
-        RedistributionEscrow storage escrow = _escrow[operatorSet.key()][slashId];
+        // Create storage pointers for readibility.
+        EnumerableSetUpgradeable.UintSet storage pendingSlashIds = _pendingSlashIds[operatorSet.key()];
+        EnumerableMapUpgradeable.AddressToUintMap storage pendingBurnOrRedistributions =
+            _pendingBurnOrRedistributions[operatorSet.key()][slashId];
 
         // Assert that the strategy is not the zero address for sanity.
         require(address(strategy) != address(0), InputAddressZero());
 
+        // Add the slash ID to the pending slash IDs set.
+        pendingSlashIds.add(slashId);
+
+        // Add the strategy and underlying amount to the pending burn or redistributions map.
+        pendingBurnOrRedistributions.set(address(strategy), underlyingAmount);
+
+        // Set the start block for the slash ID.
+        _slashIdToStartBlock[operatorSet.key()][slashId] = uint32(block.number);
+
         // Emit the event.
         emit RedistributionInitiated(operatorSet, slashId, strategy, underlyingAmount, uint32(block.number));
-
-        // Update storage.
-        escrow.underlyingAmounts.push(underlyingAmount);
-        escrow.strategies.push(strategy);
-        escrow.startBlock = uint32(block.number);
     }
 
     /// @inheritdoc ISlashingWithdrawalRouter
@@ -81,8 +89,10 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
         // Assert that the escrow is not paused.
         require(!_paused[operatorSet.key()][slashId], RedistributionCurrentlyPaused());
 
-        // Create a storage pointer to the escrow array.
-        RedistributionEscrow storage escrow = _escrow[operatorSet.key()][slashId];
+        // Create storage pointers for readibility.
+        EnumerableSetUpgradeable.UintSet storage pendingSlashIds = _pendingSlashIds[operatorSet.key()];
+        EnumerableMapUpgradeable.AddressToUintMap storage pendingBurnOrRedistributions =
+            _pendingBurnOrRedistributions[operatorSet.key()][slashId];
 
         // // TODO: Implement wrapped delay getter, see DM strategy delay logic.
         // uint32 delay;
@@ -90,30 +100,31 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
         // require(escrow.startBlock + delay > block.number, RedistributionNotMature());
 
         // Fetch the length of the escrow array.
-        uint256 totalStrategies = escrow.strategies.length;
+        uint256 length = pendingBurnOrRedistributions.length();
 
         // Iterate over the escrow array in reverse order and pop the processed entries from storage.
-        for (uint256 i = totalStrategies; i > 0; i--) {
-            uint256 index = i - 1;
+        for (uint256 i = 0; i < length; ++i) {
+            (address strategy, uint256 underlyingAmount) = pendingBurnOrRedistributions.at(i);
+
+            // Remove the strategy and underlying amount from the pending burn or redistributions map.
+            pendingBurnOrRedistributions.remove(strategy);
+
+            // Transfer the escrowed tokens to the caller.
+            IStrategy(strategy).underlyingToken().safeTransfer(redistributionRecipient, underlyingAmount);
 
             // Emit the event.
             emit RedistributionReleased(
-                operatorSet, slashId, escrow.strategies[index], escrow.underlyingAmounts[index], redistributionRecipient
+                operatorSet, slashId, IStrategy(strategy), underlyingAmount, redistributionRecipient
             );
+        }
 
-            // Transfer the escrowed tokens to the caller.
-            escrow.strategies[index].underlyingToken().safeTransfer(
-                redistributionRecipient, escrow.underlyingAmounts[index]
-            );
+        // If there are no more strategies to process, remove the slash ID from the pending slash IDs set.
+        if (pendingBurnOrRedistributions.length() == 0) {
+            // Remove the slash ID from the pending slash IDs set.
+            pendingSlashIds.remove(slashId);
 
-            // First swap the current entry with the last element.
-            escrow.underlyingAmounts[index] = escrow.underlyingAmounts[escrow.underlyingAmounts.length - 1];
-            escrow.strategies[index] = escrow.strategies[escrow.strategies.length - 1];
-
-            // Then pop the last element off the array, since it's now a duplicate.
-            escrow.underlyingAmounts.pop();
-            escrow.strategies.pop();
-            escrow.startBlock = 0;
+            // Delete the start block for the slash ID.
+            delete _slashIdToStartBlock[operatorSet.key()][slashId];
         }
     }
 
@@ -154,45 +165,55 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
     /// -----------------------------------------------------------------------
 
     /// @inheritdoc ISlashingWithdrawalRouter
-    function getRedistributionEscrow(
+    function getPendingSlashIds(
+        OperatorSet calldata operatorSet
+    ) external view returns (uint256[] memory) {
+        return _pendingSlashIds[operatorSet.key()].values();
+    }
+
+    /// @inheritdoc ISlashingWithdrawalRouter
+    function getPendingBurnOrRedistributions(
         OperatorSet calldata operatorSet,
         uint256 slashId
-    ) external view returns (RedistributionEscrow memory) {
-        return _escrow[operatorSet.key()][slashId];
+    ) external view returns (IStrategy[] memory strategies, uint256[] memory underlyingAmounts) {
+        EnumerableMapUpgradeable.AddressToUintMap storage pendingBurnOrRedistributions =
+            _pendingBurnOrRedistributions[operatorSet.key()][slashId];
+
+        uint256 length = pendingBurnOrRedistributions.length();
+
+        strategies = new IStrategy[](length);
+        underlyingAmounts = new uint256[](length);
+
+        for (uint256 i = 0; i < length; ++i) {
+            (address strategy, uint256 underlyingAmount) = pendingBurnOrRedistributions.at(i);
+
+            strategies[i] = IStrategy(strategy);
+            underlyingAmounts[i] = underlyingAmount;
+        }
+    }
+
+    /// @inheritdoc ISlashingWithdrawalRouter
+    function getPendingBurnOrRedistributionsCount(
+        OperatorSet calldata operatorSet,
+        uint256 slashId
+    ) external view returns (uint256) {
+        return _pendingBurnOrRedistributions[operatorSet.key()][slashId].length();
+    }
+
+    /// @inheritdoc ISlashingWithdrawalRouter
+    function getPendingUnderlyingAmountForStrategy(
+        OperatorSet calldata operatorSet,
+        uint256 slashId,
+        IStrategy strategy
+    ) external view returns (uint256) {
+        (, uint256 underlyingAmount) =
+            _pendingBurnOrRedistributions[operatorSet.key()][slashId].tryGet(address(strategy));
+
+        return underlyingAmount;
     }
 
     /// @inheritdoc ISlashingWithdrawalRouter
     function isRedistributionPaused(OperatorSet calldata operatorSet, uint256 slashId) external view returns (bool) {
         return _paused[operatorSet.key()][slashId];
-    }
-
-    /// @inheritdoc ISlashingWithdrawalRouter
-    function getPendingSlashIdsForOperatorSet(
-        OperatorSet calldata operatorSet
-    ) external view returns (uint256[] memory) {
-        // Get the total number of slashes for this operator set from the allocation manager.
-        uint256 slashCount = allocationManager.getSlashCount(operatorSet);
-
-        // Create a temporary array to store all potential slash IDs.
-        // We initialize it with the maximum possible size (slashCount).
-        uint256[] memory slashIds = new uint256[](slashCount);
-        uint256 index = 0;
-
-        // Iterate through all possible slash IDs up to the slash count.
-        for (uint256 i = 0; i < slashCount; ++i) {
-            // Check if this slash ID has an active escrow (startBlock != 0).
-            if (_escrow[operatorSet.key()][i].startBlock != 0) {
-                // If active, add it to our array and increment the index.
-                slashIds[index++] = i;
-            }
-        }
-
-        // Use assembly to resize the array to the actual number of active slashes found.
-        // This is more gas efficient than creating a new array (requires copying all elements).
-        assembly {
-            mstore(slashIds, index)
-        }
-
-        return slashIds;
     }
 }

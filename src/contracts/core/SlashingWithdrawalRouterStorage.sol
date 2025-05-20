@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.27;
 
-import "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
+import "@openzeppelin-upgrades/contracts/utils/structs/EnumerableMapUpgradeable.sol";
+import "@openzeppelin-upgrades/contracts/utils/structs/EnumerableSetUpgradeable.sol";
 import "../interfaces/ISlashingWithdrawalRouter.sol";
 import "../interfaces/IAllocationManager.sol";
 import "../interfaces/IStrategyManager.sol";
@@ -33,8 +34,15 @@ abstract contract SlashingWithdrawalRouterStorage is ISlashingWithdrawalRouter {
     /// Mutable Storage
     /// -----------------------------------------------------------------------
 
-    /// @notice Returns the escrow for a given operator set and slash ID.
-    mapping(bytes32 operatorSetKey => mapping(uint256 slashId => RedistributionEscrow escrow)) internal _escrow;
+    /// @dev Returns a list of pending slash IDs for a given operator set.
+    mapping(bytes32 operatorSetKey => EnumerableSetUpgradeable.UintSet) internal _pendingSlashIds;
+
+    /// @dev Returns an enumerable mapping of strategies to their underlying amounts for a given slash ID.
+    mapping(bytes32 operatorSetKey => mapping(uint256 slashId => EnumerableMapUpgradeable.AddressToUintMap)) internal
+        _pendingBurnOrRedistributions;
+
+    /// @dev Returns the start block for a given slash ID.
+    mapping(bytes32 operatorSetKey => mapping(uint256 slashId => uint32 startBlock)) internal _slashIdToStartBlock;
 
     /// @notice Returns the paused status for a given operator set and slash ID.
     mapping(bytes32 operatorSetKey => mapping(uint256 slashId => bool paused)) internal _paused;
