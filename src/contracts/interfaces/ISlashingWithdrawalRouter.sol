@@ -93,6 +93,14 @@ interface ISlashingWithdrawalRouter is ISlashingWithdrawalRouterErrors, ISlashin
         uint256 slashId
     ) external view returns (IStrategy[] memory strategies, uint256[] memory underlyingAmounts);
 
+    /// @notice Returns all pending burn or redistributions for an operator set.
+    /// @param operatorSet The operator set whose pending burn or redistributions are being queried.
+    /// @return strategies The nested list of strategies that are pending burn or redistribution.
+    /// @return underlyingAmounts The nested list of underlying amounts that are pending burn or redistribution.
+    function getPendingBurnOrRedistributions(
+        OperatorSet calldata operatorSet
+    ) external view returns (IStrategy[][] memory strategies, uint256[][] memory underlyingAmounts);
+
     /// @notice Returns the number of pending burn or redistributions for an operator set and slash ID.
     /// @param operatorSet The operator set whose pending burn or redistributions are being queried.
     /// @param slashId The slash ID of the burn or redistribution that is being queried.

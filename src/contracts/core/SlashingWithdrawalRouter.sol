@@ -173,7 +173,7 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
     function getPendingBurnOrRedistributions(
         OperatorSet calldata operatorSet,
         uint256 slashId
-    ) external view returns (IStrategy[] memory strategies, uint256[] memory underlyingAmounts) {
+    ) public view returns (IStrategy[] memory strategies, uint256[] memory underlyingAmounts) {
         EnumerableMapUpgradeable.AddressToUintMap storage pendingBurnOrRedistributions =
             _pendingBurnOrRedistributions[operatorSet.key()][slashId];
 
@@ -190,7 +190,21 @@ contract SlashingWithdrawalRouter is Initializable, SlashingWithdrawalRouterStor
         }
     }
 
-    // TODO: nested array version of ^^^
+    /// @inheritdoc ISlashingWithdrawalRouter
+    function getPendingBurnOrRedistributions(
+        OperatorSet calldata operatorSet
+    ) external view returns (IStrategy[][] memory strategies, uint256[][] memory underlyingAmounts) {
+        EnumerableSetUpgradeable.UintSet storage pendingSlashIds = _pendingSlashIds[operatorSet.key()];
+
+        uint256 length = pendingSlashIds.length();
+
+        strategies = new IStrategy[][](length);
+        underlyingAmounts = new uint256[][](length);
+
+        for (uint256 i = 0; i < length; ++i) {
+            (strategies[i], underlyingAmounts[i]) = getPendingBurnOrRedistributions(operatorSet, pendingSlashIds.at(i));
+        }
+    }
 
     /// @inheritdoc ISlashingWithdrawalRouter
     function getPendingBurnOrRedistributionsCount(
