@@ -96,12 +96,12 @@ contract SlashingWithdrawalRouterUnitTests_startBurnOrRedistributeShares is Slas
 }
 
 contract SlashingWithdrawalRouterUnitTests_burnOrRedistributeShares is SlashingWithdrawalRouterUnitTests {
-    function _scenario(uint underlyingAmount) internal {
+    function _startBurnOrRedistributeShares(IStrategy strategy, MockERC20 token, uint underlyingAmount) internal {
         allocationManagerMock.setRedistributionRecipient(defaultOperatorSet, defaultRedistributionRecipient);
 
         cheats.prank(address(strategyManagerMock));
-        slashingWithdrawalRouter.startBurnOrRedistributeShares(defaultOperatorSet, defaultSlashId, defaultStrategy, underlyingAmount);
-        deal(address(defaultToken), address(slashingWithdrawalRouter), underlyingAmount);
+        slashingWithdrawalRouter.startBurnOrRedistributeShares(defaultOperatorSet, defaultSlashId, strategy, underlyingAmount);
+        deal(address(token), address(slashingWithdrawalRouter), underlyingAmount);
 
         // TODO: delay once added
     }
@@ -111,17 +111,46 @@ contract SlashingWithdrawalRouterUnitTests_burnOrRedistributeShares is SlashingW
     }
 
     function test_burnOrRedistributeShares_onlyRedistributionRecipient(uint underlyingAmount) public {
-        _scenario(underlyingAmount);
+        _startBurnOrRedistributeShares(defaultStrategy, defaultToken, underlyingAmount);
         cheats.expectRevert(ISlashingWithdrawalRouterErrors.OnlyRedistributionRecipient.selector);
         slashingWithdrawalRouter.burnOrRedistributeShares(defaultOperatorSet, defaultSlashId);
     }
 
-    function test_burnOrRedistributeShares_correctnessSingleStrategy(uint underlyingAmount) public {
-        _scenario(underlyingAmount);
+    function test_burnOrRedistributeShares_correctnessMultipleStrategies(uint underlyingAmount) public {
+        _startBurnOrRedistributeShares(defaultStrategy, defaultToken, underlyingAmount);
         cheats.prank(defaultRedistributionRecipient);
         _mockStrategyUnderlyingTokenCall(defaultStrategy, address(defaultToken));
         slashingWithdrawalRouter.burnOrRedistributeShares(defaultOperatorSet, defaultSlashId);
+    }
+
+    function test_burnOrRedistributeShares_correctnessSingleStrategy(uint underlyingAmount) public {
+        bound(underlyingAmount, 1, type(uint128).max);
+
+        IStrategy strategy2 = IStrategy(cheats.randomAddress());
+        MockERC20 token2 = new MockERC20();
+        uint underlyingAmount2 = 2 * underlyingAmount;
+
+        _startBurnOrRedistributeShares(defaultStrategy, defaultToken, underlyingAmount);
+        _startBurnOrRedistributeShares(strategy2, token2, underlyingAmount2);
+
+        cheats.prank(defaultRedistributionRecipient);
+        _mockStrategyUnderlyingTokenCall(defaultStrategy, address(defaultToken));
+        _mockStrategyUnderlyingTokenCall(strategy2, address(token2));
+        slashingWithdrawalRouter.burnOrRedistributeShares(defaultOperatorSet, defaultSlashId);
+
+        // TODO: fix this
+        // ISlashingWithdrawalRouterTypes.RedistributionEscrow memory escrow =
+        //     slashingWithdrawalRouter.getRedistributionEscrow(defaultOperatorSet, defaultSlashId);
+        // assertEq(escrow.strategies.length, 2);
+        // assertEq(escrow.underlyingAmounts.length, 2);
+        // assertEq(address(escrow.strategies[0]), address(defaultStrategy));
+        // assertEq(address(escrow.strategies[1]), address(strategy2));
+        // assertEq(escrow.underlyingAmounts[0], underlyingAmount);
+        // assertEq(escrow.underlyingAmounts[1], underlyingAmount2);
+        // assertEq(escrow.startBlock, block.number);
+
         assertEq(defaultToken.balanceOf(defaultRedistributionRecipient), underlyingAmount);
+        assertEq(token2.balanceOf(defaultRedistributionRecipient), underlyingAmount2);
         ISlashingWithdrawalRouterTypes.RedistributionEscrow memory escrow =
             slashingWithdrawalRouter.getRedistributionEscrow(defaultOperatorSet, defaultSlashId);
         assertEq(escrow.underlyingAmounts.length, 0);
