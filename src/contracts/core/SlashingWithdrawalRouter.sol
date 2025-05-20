@@ -20,9 +20,11 @@ contract SlashingWithdrawalRouter is
     using EnumerableSetUpgradeable for *;
     using EnumerableMapUpgradeable for EnumerableMapUpgradeable.AddressToUintMap;
 
-    /// -----------------------------------------------------------------------
-    /// Initialization
-    /// -----------------------------------------------------------------------
+    /**
+     *
+     *                         INITIALIZATION
+     *
+     */
 
     constructor(
         IAllocationManager _allocationManager,
@@ -41,12 +43,16 @@ contract SlashingWithdrawalRouter is
     function initialize(address initialOwner, uint256 initialPausedStatus) external initializer {
         _transferOwnership(initialOwner);
         _setPausedStatus(initialPausedStatus);
-        _globalBurnOrRedistributionDelayBlocks = MINIMUM_BURN_OR_REDISTRIBUTION_DELAY_BLOCKS;
+
+        // Set the global burn or redistribution delay to 3.5 days in blocks assuming 12 second blocks.
+        _globalBurnOrRedistributionDelayBlocks = 3.5 days / 12 seconds;
     }
 
-    /// -----------------------------------------------------------------------
-    /// Actions
-    /// -----------------------------------------------------------------------
+    /**
+     *
+     *                         ACTIONS
+     *
+     */
 
     /// @inheritdoc ISlashingWithdrawalRouter
     function startBurnOrRedistributeShares(
@@ -125,9 +131,11 @@ contract SlashingWithdrawalRouter is
         );
     }
 
-    /// -----------------------------------------------------------------------
-    /// Pausable Actions
-    /// -----------------------------------------------------------------------
+    /**
+     *
+     *                         PAUSABLE ACTIONS
+     *
+     */
 
     /// @inheritdoc ISlashingWithdrawalRouter
     function pauseRedistribution(OperatorSet calldata operatorSet, uint256 slashId) external virtual onlyPauser {
@@ -153,9 +161,11 @@ contract SlashingWithdrawalRouter is
         emit RedistributionUnpaused(operatorSet, slashId);
     }
 
-    /// -----------------------------------------------------------------------
-    /// Owner Actions
-    /// -----------------------------------------------------------------------
+    /**
+     *
+     *                         OWNER ACTIONS
+     *
+     */
 
     /// @inheritdoc ISlashingWithdrawalRouter
     function setGlobalBurnOrRedistributionDelay(
@@ -177,9 +187,11 @@ contract SlashingWithdrawalRouter is
         emit StrategyBurnOrRedistributionDelaySet(strategy, delay);
     }
 
-    /// -----------------------------------------------------------------------
-    /// Helpers
-    /// -----------------------------------------------------------------------
+    /**
+     *
+     *                         HELPERS
+     *
+     */
 
     /// @notice Processes burn or redistribution of escrowed tokens for a given operator set and slash ID.
     /// @dev Iterates through pending burn/redistributions in reverse order, checking if each strategy's delay period has elapsed.
@@ -256,9 +268,11 @@ contract SlashingWithdrawalRouter is
         require(_paused[operatorSet.key()][slashId] != newPauseStatus, IPausable.InvalidNewPausedStatus());
     }
 
-    /// -----------------------------------------------------------------------
-    /// Getters
-    /// -----------------------------------------------------------------------
+    /**
+     *
+     *                         GETTERS
+     *
+     */
 
     /// @inheritdoc ISlashingWithdrawalRouter
     function getPendingOperatorSets() external view returns (OperatorSet[] memory operatorSets) {

@@ -9,12 +9,7 @@ import "../interfaces/IStrategyManager.sol";
 import "../interfaces/IStrategy.sol";
 
 abstract contract SlashingWithdrawalRouterStorage is ISlashingWithdrawalRouter {
-    /// -----------------------------------------------------------------------
-    /// Constants
-    /// -----------------------------------------------------------------------
-
-    /// @dev The minimum number of blocks that must pass before a burn or redistribution can be initiated.
-    uint32 internal constant MINIMUM_BURN_OR_REDISTRIBUTION_DELAY_BLOCKS = 3.5 days / 12 seconds;
+    // Constants
 
     /// @dev The default burn address for slashed funds.
     address internal constant DEFAULT_BURN_ADDRESS = 0x00000000000000000000000000000000000E16E4;
@@ -23,9 +18,7 @@ abstract contract SlashingWithdrawalRouterStorage is ISlashingWithdrawalRouter {
     /// @dev Allows all burn or redistribution outflows to be temporarily halted.
     uint8 public constant PAUSED_BURN_OR_REDISTRIBUTE_SHARES = 0;
 
-    /// -----------------------------------------------------------------------
-    /// Immutable Storage
-    /// -----------------------------------------------------------------------
+    // Immutable Storage
 
     /// @notice Returns the EigenLayer `AllocationManager` address.
     IAllocationManager public immutable allocationManager;
@@ -33,9 +26,7 @@ abstract contract SlashingWithdrawalRouterStorage is ISlashingWithdrawalRouter {
     /// @notice Returns the EigenLayer `StrategyManager` address.
     IStrategyManager public immutable strategyManager;
 
-    /// -----------------------------------------------------------------------
-    /// Mutable Storage
-    /// -----------------------------------------------------------------------
+    // Mutable Storage
 
     /// @dev Returns a list of operator sets that have pending slash IDs.
     EnumerableSetUpgradeable.Bytes32Set internal _pendingOperatorSets;
@@ -59,9 +50,7 @@ abstract contract SlashingWithdrawalRouterStorage is ISlashingWithdrawalRouter {
     /// @dev Returns the operator set delay for a given strategy.
     mapping(address strategy => uint32 delay) internal _strategyBurnOrRedistributionDelayBlocks;
 
-    /// -----------------------------------------------------------------------
-    /// Construction
-    /// -----------------------------------------------------------------------
+    // Constructor
 
     constructor(IAllocationManager _allocationManager, IStrategyManager _strategyManager) {
         allocationManager = _allocationManager;
