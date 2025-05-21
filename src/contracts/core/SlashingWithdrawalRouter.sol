@@ -25,7 +25,6 @@ contract SlashingWithdrawalRouter is
      *                         INITIALIZATION
      *
      */
-
     constructor(
         IAllocationManager _allocationManager,
         IStrategyManager _strategyManager,
@@ -73,9 +72,6 @@ contract SlashingWithdrawalRouter is
         // Create a storage pointer to `_pendingBurnOrRedistributions`.
         EnumerableMapUpgradeable.AddressToUintMap storage pendingBurnOrRedistributions =
             _pendingBurnOrRedistributions[operatorSet.key()][slashId];
-
-        // Assert that the strategy is not the zero address for sanity.
-        require(address(strategy) != address(0), InputAddressZero());
 
         // Add the slash ID to the pending slash IDs set.
         pendingSlashIds.add(slashId);
@@ -205,6 +201,9 @@ contract SlashingWithdrawalRouter is
         // Fetch the total number of pending burn or redistributions for the slash ID before processing.
         uint256 totalPendingForSlashId = pendingBurnOrRedistributions.length();
 
+        // Fetch the start block for the slash ID.
+        uint256 startBlock = getBurnOrRedistributionStartBlock(operatorSet, slashId);
+
         // Iterate over the escrow array in reverse order and pop the processed entries from storage.
         for (uint256 i = totalPendingForSlashId; i > 0; --i) {
             (address strategy, uint256 underlyingAmount) = pendingBurnOrRedistributions.at(i - 1);
@@ -212,19 +211,21 @@ contract SlashingWithdrawalRouter is
             // Fetch the burn or redistribution delay for the strategy.
             uint256 delay = getStrategyBurnOrRedistributionDelay(IStrategy(strategy));
 
-            // If the slash ID has passed the burn or redistribution delay...
-            if (_slashIdToStartBlock[operatorSet.key()][slashId] + delay <= block.number) {
-                // Remove the strategy and underlying amount from the pending burn or redistributions map.
-                pendingBurnOrRedistributions.remove(strategy);
-
-                // Transfer the escrowed tokens to the caller.
-                IStrategy(strategy).underlyingToken().safeTransfer(redistributionRecipient, underlyingAmount);
-
-                // Emit an event to notify that a burn or redistribution has occurred.
-                emit BurnOrRedistribution(
-                    operatorSet, slashId, IStrategy(strategy), underlyingAmount, redistributionRecipient
-                );
+            // Skip this element if the delay has not passed.
+            if (startBlock + delay >= block.number) {
+                continue;
             }
+
+            // Remove the strategy and underlying amount from the pending burn or redistributions map.
+            pendingBurnOrRedistributions.remove(strategy);
+
+            // Transfer the escrowed tokens to the caller.
+            IStrategy(strategy).underlyingToken().safeTransfer(redistributionRecipient, underlyingAmount);
+
+            // Emit an event to notify that a burn or redistribution has occurred.
+            emit BurnOrRedistribution(
+                operatorSet, slashId, IStrategy(strategy), underlyingAmount, redistributionRecipient
+            );
         }
     }
 
@@ -375,6 +376,14 @@ contract SlashingWithdrawalRouter is
         uint256 slashId
     ) external view returns (bool) {
         return _paused[operatorSet.key()][slashId];
+    }
+
+    /// @inheritdoc ISlashingWithdrawalRouter
+    function getBurnOrRedistributionStartBlock(
+        OperatorSet calldata operatorSet,
+        uint256 slashId
+    ) public view returns (uint256) {
+        return _slashIdToStartBlock[operatorSet.key()][slashId];
     }
 
     /// @inheritdoc ISlashingWithdrawalRouter

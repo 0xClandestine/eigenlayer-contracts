@@ -188,6 +188,17 @@ interface ISlashingWithdrawalRouter is ISlashingWithdrawalRouterErrors, ISlashin
     ) external view returns (bool);
 
     /**
+     * @notice Returns the start block for a slash ID.
+     * @param operatorSet The operator set whose start block is being queried.
+     * @param slashId The slash ID of the start block that is being queried.
+     * @return The start block.
+     */
+    function getBurnOrRedistributionStartBlock(
+        OperatorSet calldata operatorSet,
+        uint256 slashId
+    ) external view returns (uint256);
+
+    /**
      * @notice Returns the burn or redistribution delay for a strategy.
      * @param strategy The strategy whose burn or redistribution delay is being queried.
      * @return The burn or redistribution delay.

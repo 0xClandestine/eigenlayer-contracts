@@ -70,12 +70,6 @@ contract SlashingWithdrawalRouterUnitTests_startBurnOrRedistributeShares is Slas
         slashingWithdrawalRouter.startBurnOrRedistributeShares(defaultOperatorSet, defaultSlashId, defaultStrategy, 0);
     }
 
-    function test_startBurnOrRedistributeShares_inputAddressZero() public {
-        cheats.prank(address(strategyManagerMock));
-        cheats.expectRevert(IPausable.InputAddressZero.selector);
-        slashingWithdrawalRouter.startBurnOrRedistributeShares(defaultOperatorSet, defaultSlashId, IStrategy(address(0)), 0);
-    }
-
     function test_startBurnOrRedistributeShares_onlyRedistributionRecipient(uint underlyingAmount) public {
         allocationManagerMock.setRedistributionRecipient(defaultOperatorSet, defaultRedistributionRecipient);
 
